@@ -1,0 +1,140 @@
+# Ruby versions to build and cache (only officially supported versions)
+versions:
+  # Ruby 3.5.x series (Preview/Development)
+  - version: "3.5.0-preview1"
+    status: "preview"
+    priority: "low"
+    maintenance: "preview"
+    eol_date: "TBD"
+  
+  # Ruby 3.4.x series (Normal Maintenance until 2024-12-25, then Security Maintenance)
+  - version: "3.4.6"
+    status: "stable"
+    priority: "high"
+    maintenance: "normal"
+    eol_date: "2027-12-25"
+  - version: "3.4.5"
+    status: "stable"
+    priority: "medium"
+    maintenance: "normal"
+    eol_date: "2027-12-25"
+  - version: "3.4.4"
+    status: "stable"
+    priority: "low"
+    maintenance: "normal"
+    eol_date: "2027-12-25"
+  
+  # Ruby 3.3.x series (Normal Maintenance until 2027-03-31)  
+  - version: "3.3.9"
+    status: "stable"
+    priority: "high"
+    maintenance: "normal"
+    eol_date: "2027-03-31"
+  - version: "3.3.8"
+    status: "stable"
+    priority: "medium"
+    maintenance: "normal"
+    eol_date: "2027-03-31"
+
+# Platform configurations (matching CLI platforms exactly)
+platforms:
+  # Native GitHub-hosted builds
+  ubuntu-22.04:
+    architectures: ["amd64", "arm64"] 
+    runners:
+      amd64: "ubuntu-22.04"
+      arm64: "ubuntu-22.04-arm"  # Correct ARM runner name
+    build_type: "native"
+    
+  ubuntu-24.04:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "ubuntu-24.04"
+      arm64: "ubuntu-24.04-arm"  # This runner has GLIBC 2.39 matching the CLI binary
+    build_type: "native"
+    
+  # Docker builds for precise compatibility (using native runners)
+  debian-bookworm:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "ubuntu-latest"
+      arm64: "ubuntu-22.04-arm"  # Use Ubuntu 22.04 ARM runner for Docker
+    container: "debian:bookworm-slim"
+    build_type: "docker"
+    
+  debian-bullseye:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "ubuntu-latest"
+      arm64: "ubuntu-22.04-arm"  # Use Ubuntu 22.04 ARM runner for Docker
+    container: "debian:bullseye-slim"
+    build_type: "docker"
+    
+  alpine:
+    architectures: ["amd64"]  # Only amd64 for now - no Alpine ARM64 boringcache binary available
+    runners:
+      amd64: "ubuntu-latest"
+    container: "alpine:latest"
+    build_type: "docker"
+    
+  # Arch Linux builds (Docker on native runners)
+  arch:
+    architectures: ["amd64"]  # ARM64 not available for archlinux:latest Docker image
+    runners:
+      amd64: "ubuntu-latest"
+    container: "archlinux:latest"
+    build_type: "docker"
+    
+  # Native GitHub-hosted builds
+  macos:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "macos-13"     # Intel (only option available)
+      arm64: "macos-15"     # Apple Silicon (stable latest)
+    build_type: "native"
+    
+  windows:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "windows-2022"
+      arm64: "windows-11-arm"
+    build_type: "native"
+    build_method: "msys2"
+
+# Build configuration
+build:
+  configure_options:
+    common:
+      - "--enable-shared"
+      - "--disable-install-doc"
+      - "--with-jemalloc"
+      - "--enable-yjit"
+    linux:
+      - "--with-openssl-dir=/usr"
+    macos:
+      - "--with-openssl-dir=/opt/homebrew"
+      - "--with-readline-dir=/opt/homebrew"
+    windows:
+      - "--with-openssl-dir=/mingw64"
+  
+  optimizations:
+    - name: "jemalloc"
+      platforms: ["debian", "ubuntu", "macos"]
+    - name: "yjit"
+      platforms: ["debian", "ubuntu", "macos"]
+      min_version: "3.1.0"
+
+# Cache configuration
+cache:
+  workspace: "boringcache/ruby"
+  retention_days: 90
+  key_pattern: "ruby-{version}"
+  
+  metadata:
+    include:
+      - version
+      - platform
+      - architecture
+      - build_date
+      - configure_options
+      - installed_gems
