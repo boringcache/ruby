@@ -649,31 +649,51 @@ if [[ "$VARIANTS" == "vanilla,yjit,jemalloc" ]] || [[ "$VARIANTS" == "standard,y
     echo "Platform $PLATFORM supports variants: $VARIANTS"
 fi
 
-# Pre-download Ruby source once to avoid parallel download conflicts
+# Setup shared cache directory for ruby-build
 echo "========================================"
-echo "Pre-downloading Ruby source for parallel builds"
+echo "Setting up shared cache for Ruby builds"
 echo "========================================"
 
 SHARED_CACHE_DIR="/tmp/ruby-source-cache"
 mkdir -p "$SHARED_CACHE_DIR"
 export RUBY_BUILD_CACHE_PATH="$SHARED_CACHE_DIR"
 
-echo "Setting up shared source cache at: $SHARED_CACHE_DIR"
+echo "✓ Shared cache directory created at: $SHARED_CACHE_DIR"
 
-# Download source once using a temporary build (we'll discard the build, keep the cache)
-echo "Pre-downloading Ruby $RUBY_VERSION source..."
-TEMP_DOWNLOAD_DIR="/tmp/ruby-pre-download-$$"
-if ruby-build --keep "$RUBY_VERSION" "$TEMP_DOWNLOAD_DIR" >/dev/null 2>&1; then
-    echo "✓ Ruby source pre-downloaded successfully"
-    # Keep only the cached source, remove the temporary build
-    rm -rf "$TEMP_DOWNLOAD_DIR"
+# Pre-download Ruby source tarball (without building)
+echo "Pre-downloading Ruby $RUBY_VERSION source tarball..."
+RUBY_MAJOR=$(echo "$RUBY_VERSION" | cut -d. -f1-2)
+RUBY_TARBALL="ruby-${RUBY_VERSION}.tar.gz"
+CACHE_FILE="$SHARED_CACHE_DIR/$RUBY_TARBALL"
+
+if [[ ! -f "$CACHE_FILE" ]]; then
+    # Try to download from official Ruby sources
+    RUBY_URLS=(
+        "https://cache.ruby-lang.org/pub/ruby/${RUBY_MAJOR}/ruby-${RUBY_VERSION}.tar.gz"
+        "https://ftp.ruby-lang.org/pub/ruby/${RUBY_MAJOR}/ruby-${RUBY_VERSION}.tar.gz"
+        "https://www.ruby-lang.org/pub/ruby/${RUBY_MAJOR}/ruby-${RUBY_VERSION}.tar.gz"
+    )
+    
+    DOWNLOAD_SUCCESS=false
+    for url in "${RUBY_URLS[@]}"; do
+        echo "Attempting download from: $url"
+        if curl -fsSL --connect-timeout 10 --max-time 300 -o "$CACHE_FILE" "$url"; then
+            echo "✓ Successfully downloaded Ruby source to cache"
+            DOWNLOAD_SUCCESS=true
+            break
+        else
+            echo "Failed to download from $url, trying next mirror..."
+            rm -f "$CACHE_FILE"
+        fi
+    done
+    
+    if [[ "$DOWNLOAD_SUCCESS" = false ]]; then
+        echo "⚠ Could not pre-download Ruby source, ruby-build will handle downloads"
+        # Don't fail - let ruby-build handle it
+    fi
 else
-    echo "⚠ Pre-download had issues, but continuing with parallel builds..."
-    echo "Parallel builds will attempt individual downloads if needed"
-    rm -rf "$TEMP_DOWNLOAD_DIR"
+    echo "✓ Ruby source already cached at: $CACHE_FILE"
 fi
-
-echo "✓ Source cache setup complete"
 
 # Build all variants in parallel
 IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
