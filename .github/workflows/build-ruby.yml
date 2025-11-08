@@ -30,7 +30,7 @@ on:
 env:
   BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
   BORINGCACHE_API_URL: ${{ secrets.BORINGCACHE_API_URL }}
-  BORINGCACHE_DEFAULT_WORKSPACE: ${{ vars.BORINGCACHE_DEFAULT_WORKSPACE || 'ruby/ruby' }}
+  BORINGCACHE_DEFAULT_WORKSPACE: ${{ secrets.BORINGCACHE_DEFAULT_WORKSPACE || 'ruby/ruby' }}
 
 jobs:
   prepare:
@@ -377,7 +377,7 @@ jobs:
         if: matrix.use_docker != true && startsWith(matrix.platform, 'ubuntu')
         run: |
           sudo apt-get update
-          
+
           # Install core build dependencies
           sudo apt-get install -y \
             build-essential \
@@ -415,7 +415,6 @@ jobs:
             imagemagick \
             libvips-dev \
             libcurl4-openssl-dev
-          
 
       - name: Install build dependencies (macOS)
         if: matrix.use_docker != true && startsWith(matrix.platform, 'macos')
