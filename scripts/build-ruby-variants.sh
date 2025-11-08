@@ -9,8 +9,15 @@ VARIANTS="${4:-standard,yjit,jemalloc,jemalloc-yjit}"
 
 # Resolve workspace preference: BORINGCACHE_DEFAULT_WORKSPACE > WORKSPACE > default
 DEFAULT_BORINGCACHE_WORKSPACE="ruby/ruby"
-BORINGCACHE_WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-${WORKSPACE:-$DEFAULT_BORINGCACHE_WORKSPACE}}"
-echo "Using BoringCache workspace: $BORINGCACHE_WORKSPACE"
+BORINGCACHE_USE_CLI_DEFAULT=false
+if [[ -n "${BORINGCACHE_DEFAULT_WORKSPACE:-}" ]]; then
+    BORINGCACHE_WORKSPACE="$BORINGCACHE_DEFAULT_WORKSPACE"
+    BORINGCACHE_USE_CLI_DEFAULT=true
+    echo "Using BoringCache workspace from BORINGCACHE_DEFAULT_WORKSPACE: $BORINGCACHE_WORKSPACE"
+else
+    BORINGCACHE_WORKSPACE="${WORKSPACE:-$DEFAULT_BORINGCACHE_WORKSPACE}"
+    echo "Using BoringCache workspace: $BORINGCACHE_WORKSPACE"
+fi
 
 echo "Building Ruby $RUBY_VERSION for $PLATFORM-$ARCH with variants: $VARIANTS"
 
@@ -807,7 +814,13 @@ if (( ${#BUILT_VARIANTS[@]} )); then
         # CLI now automatically detects and includes SBOM files
         # The sbom.json file in RUBY_BASE_DIR will be detected and included
         # Correct format: boringcache save <WORKSPACE> <TAG:PATH>
-        if boringcache save "$BORINGCACHE_WORKSPACE" "$cache_tag:$RUBY_BASE_DIR"; then
+        SAVE_CMD=(boringcache save)
+        if [[ "$BORINGCACHE_USE_CLI_DEFAULT" != true ]]; then
+            SAVE_CMD+=("$BORINGCACHE_WORKSPACE")
+        fi
+        SAVE_CMD+=("$cache_tag:$RUBY_BASE_DIR")
+
+        if "${SAVE_CMD[@]}"; then
             echo "✓ Successfully cached Ruby $RUBY_VERSION ($variant) with SBOM to BoringCache"
         else
             echo "✗ Failed to cache Ruby $RUBY_VERSION ($variant) to BoringCache"
