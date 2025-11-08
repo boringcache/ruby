@@ -5,7 +5,7 @@ RUBY_VERSION ?= 3.3.6
 PLATFORM ?= $(shell uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
 ARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 VARIANTS ?= standard,yjit,jemalloc,jemalloc-yjit
-WORKSPACE ?= ruby/ruby
+WORKSPACE ?= boringcache/ruby
 
 export WORKSPACE
 BORINGCACHE_DEFAULT_WORKSPACE ?= $(WORKSPACE)
