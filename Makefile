@@ -5,10 +5,7 @@ RUBY_VERSION ?= 3.3.6
 PLATFORM ?= $(shell uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
 ARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 VARIANTS ?= standard,yjit,jemalloc,jemalloc-yjit
-WORKSPACE ?= boringcache/ruby
-
-export WORKSPACE
-BORINGCACHE_DEFAULT_WORKSPACE ?= $(WORKSPACE)
+BORINGCACHE_DEFAULT_WORKSPACE ?= ruby/ruby
 export BORINGCACHE_DEFAULT_WORKSPACE
 
 # Build directories
@@ -30,7 +27,7 @@ help: ## Show this help message
 	@echo "  PLATFORM      Target platform: debian, ubuntu, macos, windows (default: $(PLATFORM))"
 	@echo "  ARCH          Target architecture: amd64, arm64 (default: $(ARCH))"
 	@echo "  VARIANTS      Ruby variants to build: standard,yjit,jemalloc,jemalloc-yjit (default: $(VARIANTS))"
-	@echo "  WORKSPACE     BoringCache workspace (default: $(WORKSPACE))"
+	@echo "  BORINGCACHE_DEFAULT_WORKSPACE  Workspace used by CLI (default: $(BORINGCACHE_DEFAULT_WORKSPACE))"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make build RUBY_VERSION=3.2.3"
@@ -47,13 +44,13 @@ upload: ## Upload built Ruby to BoringCache (requires build first)
 		echo "Error: No build found at $(INSTALL_DIR). Run 'make build' first."; \
 		exit 1; \
 	fi
-	@echo "Uploading Ruby $(RUBY_VERSION) to $(WORKSPACE)..."
-	boringcache save $(WORKSPACE) "ruby-$(RUBY_VERSION):$(INSTALL_DIR)" \
+	@echo "Uploading Ruby $(RUBY_VERSION) to $(BORINGCACHE_DEFAULT_WORKSPACE)..."
+	boringcache save $(BORINGCACHE_DEFAULT_WORKSPACE) "ruby-$(RUBY_VERSION):$(INSTALL_DIR)" \
 		--description "Ruby $(RUBY_VERSION) for $(PLATFORM) $(ARCH)"
 
 list-cache: ## List available Ruby versions in BoringCache
-	@echo "Available Ruby versions in $(WORKSPACE):"
-	@boringcache ls $(WORKSPACE) | grep "^ruby-" | sort -V
+	@echo "Available Ruby versions in $(BORINGCACHE_DEFAULT_WORKSPACE):"
+	@boringcache ls $(BORINGCACHE_DEFAULT_WORKSPACE) | grep "^ruby-" | sort -V
 
 clean: ## Clean up build artifacts
 	@echo "Cleaning up build artifacts..."
@@ -113,7 +110,7 @@ info: ## Show build information
 	@echo "  Platform: $(PLATFORM)" 
 	@echo "  Architecture: $(ARCH)"
 	@echo "  Variants: $(VARIANTS)"
-	@echo "  Workspace: $(WORKSPACE)"
+	@echo "  Workspace: $(BORINGCACHE_DEFAULT_WORKSPACE)"
 	@echo "  Build Dir: $(BUILD_DIR)"
 	@echo "  Install Dir: $(INSTALL_DIR)"
 	@echo ""

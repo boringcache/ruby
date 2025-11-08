@@ -7,31 +7,8 @@ PLATFORM="${2:-linux}"
 ARCH="${3:-amd64}"
 VARIANTS="${4:-standard,yjit,jemalloc,jemalloc-yjit}"
 
-# Resolve workspace preference (highest to lowest):
-#   1. DEFAULT_BORINGCACHE_WORKSPACE (explicit override for build tooling)
-#   2. WORKSPACE (Makefile variable / CLI flag)
-#   3. BORINGCACHE_DEFAULT_WORKSPACE (CLI default)
-#   4. built-in fallback
-ENV_DEFAULT_WORKSPACE="${DEFAULT_BORINGCACHE_WORKSPACE:-}"
-ENV_WORKSPACE="${WORKSPACE:-}"
-CLI_DEFAULT_WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-}"
-DEFAULT_WORKSPACE_FALLBACK="boringcache/ruby"
-BORINGCACHE_USE_CLI_DEFAULT=false
-
-if [[ -n "$ENV_DEFAULT_WORKSPACE" ]]; then
-    BORINGCACHE_WORKSPACE="$ENV_DEFAULT_WORKSPACE"
-    echo "Using BoringCache workspace from DEFAULT_BORINGCACHE_WORKSPACE: $BORINGCACHE_WORKSPACE"
-elif [[ -n "$ENV_WORKSPACE" ]]; then
-    BORINGCACHE_WORKSPACE="$ENV_WORKSPACE"
-    echo "Using BoringCache workspace from WORKSPACE: $BORINGCACHE_WORKSPACE"
-elif [[ -n "$CLI_DEFAULT_WORKSPACE" ]]; then
-    BORINGCACHE_WORKSPACE="$CLI_DEFAULT_WORKSPACE"
-    BORINGCACHE_USE_CLI_DEFAULT=true
-    echo "Using BoringCache workspace from BORINGCACHE_DEFAULT_WORKSPACE: $BORINGCACHE_WORKSPACE"
-else
-    BORINGCACHE_WORKSPACE="$DEFAULT_WORKSPACE_FALLBACK"
-    echo "Using default BoringCache workspace: $BORINGCACHE_WORKSPACE"
-fi
+BORINGCACHE_WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
+echo "Using BoringCache workspace: $BORINGCACHE_WORKSPACE"
 
 echo "Building Ruby $RUBY_VERSION for $PLATFORM-$ARCH with variants: $VARIANTS"
 
@@ -828,13 +805,7 @@ if (( ${#BUILT_VARIANTS[@]} )); then
         # CLI now automatically detects and includes SBOM files
         # The sbom.json file in RUBY_BASE_DIR will be detected and included
         # Correct format: boringcache save <WORKSPACE> <TAG:PATH>
-        SAVE_CMD=(boringcache save)
-        if [[ "$BORINGCACHE_USE_CLI_DEFAULT" != true ]]; then
-            SAVE_CMD+=("$BORINGCACHE_WORKSPACE")
-        fi
-        SAVE_CMD+=("$cache_tag:$RUBY_BASE_DIR")
-
-        if "${SAVE_CMD[@]}"; then
+        if boringcache save "$BORINGCACHE_WORKSPACE" "$cache_tag:$RUBY_BASE_DIR"; then
             echo "✓ Successfully cached Ruby $RUBY_VERSION ($variant) with SBOM to BoringCache"
         else
             echo "✗ Failed to cache Ruby $RUBY_VERSION ($variant) to BoringCache"

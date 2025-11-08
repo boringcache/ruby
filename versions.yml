@@ -126,7 +126,7 @@ build:
 
 # Cache configuration
 cache:
-  workspace: "boringcache/ruby"
+  workspace: "ruby/ruby"
   retention_days: 90
   key_pattern: "ruby-{version}"
   

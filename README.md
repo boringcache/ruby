@@ -9,7 +9,7 @@ Prebuilt Ruby distributions with multiple variants for fast CI/CD setup. Built w
 curl -sSL https://install.boringcache.com/install.sh | sh
 
 # Restore Ruby (standard variant)
-boringcache restore boringcache/ruby ruby-3.3.8-macos-15-arm64 ./ruby
+boringcache restore ruby/ruby ruby-3.3.8-macos-15-arm64 ./ruby
 
 # Add to PATH and use
 export PATH="$PWD/ruby/ruby/bin:$PATH"
@@ -19,15 +19,13 @@ ruby --version
 ## Choosing a Workspace
 
 Ruby artifacts are published to the `ruby/ruby` workspace by default. Set `BORINGCACHE_DEFAULT_WORKSPACE`
-to override that location for every CLI invocation (and the build scripts), or pass `WORKSPACE=<name>` to `make`
-targets when you only want to override uploads from the local build tooling:
+to point the CLI and build scripts at a different workspace:
 
 ```bash
 # Use a custom workspace everywhere (recommended for CI)
 export BORINGCACHE_DEFAULT_WORKSPACE="acme/ruby"
-
-# Or only override for a single make command
-WORKSPACE="acme/ruby" make upload
+# Or only override a single command
+BORINGCACHE_DEFAULT_WORKSPACE="acme/ruby" make upload
 ```
 
 ## Supported Platforms & Architectures
@@ -50,7 +48,7 @@ Each platform builds multiple Ruby variants optimized for different use cases:
 ### 1. Standard (Default)
 ```bash
 # Tag format: ruby-VERSION-PLATFORM-ARCH
-boringcache restore boringcache/ruby ruby-3.3.8-ubuntu-22-04-amd64 ./ruby
+boringcache restore ruby/ruby ruby-3.3.8-ubuntu-22-04-amd64 ./ruby
 ```
 
 **Features:**
@@ -64,7 +62,7 @@ boringcache restore boringcache/ruby ruby-3.3.8-ubuntu-22-04-amd64 ./ruby
 ### 2. YJIT (JIT Compiler)
 ```bash
 # Tag format: ruby-VERSION-yjit-PLATFORM-ARCH  
-boringcache restore boringcache/ruby ruby-3.3.8-yjit-ubuntu-22-04-amd64 ./ruby
+boringcache restore ruby/ruby ruby-3.3.8-yjit-ubuntu-22-04-amd64 ./ruby
 ```
 
 **Features:**
@@ -78,7 +76,7 @@ boringcache restore boringcache/ruby ruby-3.3.8-yjit-ubuntu-22-04-amd64 ./ruby
 ### 3. Jemalloc (Memory Allocator)
 ```bash
 # Tag format: ruby-VERSION-jemalloc-PLATFORM-ARCH
-boringcache restore boringcache/ruby ruby-3.3.8-jemalloc-ubuntu-22-04-amd64 ./ruby
+boringcache restore ruby/ruby ruby-3.3.8-jemalloc-ubuntu-22-04-amd64 ./ruby
 ```
 
 **Features:**
@@ -141,7 +139,7 @@ jobs:
       # Restore prebuilt Ruby with YJIT
       - name: Setup Ruby
         run: |
-          boringcache restore boringcache/ruby ruby-3.3.8-yjit-ubuntu-22-04-amd64 ./ruby
+          boringcache restore ruby/ruby ruby-3.3.8-yjit-ubuntu-22-04-amd64 ./ruby
           echo "$PWD/ruby/ruby/bin" >> $GITHUB_PATH
       
       - name: Ruby info
@@ -167,7 +165,7 @@ FROM ubuntu:22.04
 RUN curl -sSL https://install.boringcache.com/install.sh | sh
 
 # Restore Ruby (requires BORINGCACHE_API_TOKEN)
-RUN boringcache restore boringcache/ruby ruby-3.3.8-ubuntu-22-04-amd64 /usr/local
+RUN boringcache restore ruby/ruby ruby-3.3.8-ubuntu-22-04-amd64 /usr/local
 ENV PATH="/usr/local/ruby/bin:$PATH"
 
 # Your application
@@ -184,7 +182,7 @@ CMD ["ruby", "app.rb"]
 curl -sSL https://install.boringcache.com/install.sh | sh
 
 # Restore specific Ruby variant
-boringcache restore boringcache/ruby ruby-3.3.8-jemalloc-macos-15-arm64 ~/ruby-jemalloc
+boringcache restore ruby/ruby ruby-3.3.8-jemalloc-macos-15-arm64 ~/ruby-jemalloc
 
 # Use this Ruby
 export PATH="$HOME/ruby-jemalloc/ruby/bin:$PATH"
@@ -403,10 +401,10 @@ export DYLD_LIBRARY_PATH="$PWD/ruby/ruby/lib:$DYLD_LIBRARY_PATH"
 #### Platform-specific variants unavailable
 ```bash
 # Check variant availability for your platform
-boringcache ls boringcache/ruby | grep ruby-3.3.8 | grep $(uname -m)
+boringcache ls ruby/ruby | grep ruby-3.3.8 | grep $(uname -m)
 
 # Use standard variant if others unavailable
-boringcache restore boringcache/ruby ruby-3.3.8-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m) ./ruby
+boringcache restore ruby/ruby ruby-3.3.8-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m) ./ruby
 ```
 
 #### Windows limitations
@@ -414,11 +412,11 @@ Windows builds only support the standard Ruby variant:
 
 ```bash
 # Windows - only standard variant available
-boringcache restore boringcache/ruby ruby-3.3.8-windows-2022-amd64 ./ruby
+boringcache restore ruby/ruby ruby-3.3.8-windows-2022-amd64 ./ruby
 
 # For YJIT/jemalloc on Windows, use WSL2 or Docker
 wsl
-boringcache restore boringcache/ruby ruby-3.3.8-yjit-ubuntu-22-04-amd64 ./ruby
+boringcache restore ruby/ruby ruby-3.3.8-yjit-ubuntu-22-04-amd64 ./ruby
 ```
 
 ## Contributing
