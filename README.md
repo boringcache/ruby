@@ -16,6 +16,20 @@ export PATH="$PWD/ruby/ruby/bin:$PATH"
 ruby --version
 ```
 
+## Choosing a Workspace
+
+Ruby artifacts are published to the `ruby/ruby` workspace by default. Set `BORINGCACHE_DEFAULT_WORKSPACE`
+to override that location for every CLI invocation (and the build scripts), or pass `WORKSPACE=<name>` to `make`
+targets when you only want to override uploads from the local build tooling:
+
+```bash
+# Use a custom workspace everywhere (recommended for CI)
+export BORINGCACHE_DEFAULT_WORKSPACE="acme/ruby"
+
+# Or only override for a single make command
+WORKSPACE="acme/ruby" make upload
+```
+
 ## Supported Platforms & Architectures
 
 | Platform | Architectures | Runner | Notes |

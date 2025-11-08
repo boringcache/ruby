@@ -30,6 +30,7 @@ on:
 env:
   BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
   BORINGCACHE_API_URL: ${{ secrets.BORINGCACHE_API_URL }}
+  BORINGCACHE_DEFAULT_WORKSPACE: ${{ vars.BORINGCACHE_DEFAULT_WORKSPACE || 'ruby/ruby' }}
 
 jobs:
   prepare:
@@ -290,10 +291,20 @@ jobs:
                 done
               fi
               
+              # Source Rust environment if it was just installed
+              if [ -f "$HOME/.cargo/env" ]; then
+                . "$HOME/.cargo/env"
+                export PATH="$HOME/.cargo/bin:$PATH"
+              fi
+              
               # Install BoringCache CLI using the standard install script
               if ! command -v boringcache &> /dev/null; then
                 echo "Installing BoringCache CLI..."
-                curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | sh
+                if ! curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | sh; then
+                  echo "BoringCache CLI installation failed, retrying..."
+                  sleep 2
+                  curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | sh
+                fi
                 # In Docker containers, PATH needs to be updated for the current session
                 export PATH="$HOME/.local/bin:$PATH"
                 # Verify installation
@@ -477,10 +488,11 @@ jobs:
 
           # List all entries and clean up old ones (keep last 10 versions)
           echo "Cleaning up old Ruby cache entries..."
-          boringcache ls boringcache/ruby --limit 100 | \
+          WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-boringcache/ruby}"
+          boringcache ls "$WORKSPACE" --limit 100 | \
             grep "^ruby-" | \
             tail -n +11 | \
             while read entry; do
               echo "Deleting old entry: $entry"
-              boringcache delete boringcache/ruby "$entry" || true
+              boringcache delete "$WORKSPACE" "$entry" || true
             done

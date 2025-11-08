@@ -7,6 +7,10 @@ ARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 VARIANTS ?= standard,yjit,jemalloc,jemalloc-yjit
 WORKSPACE ?= ruby/ruby
 
+export WORKSPACE
+BORINGCACHE_DEFAULT_WORKSPACE ?= $(WORKSPACE)
+export BORINGCACHE_DEFAULT_WORKSPACE
+
 # Build directories
 BUILD_DIR = /tmp/ruby-build-$(RUBY_VERSION)-$(ARCH)
 INSTALL_DIR = /tmp/ruby-$(RUBY_VERSION)-$(ARCH)

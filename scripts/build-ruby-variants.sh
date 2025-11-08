@@ -7,6 +7,11 @@ PLATFORM="${2:-linux}"
 ARCH="${3:-amd64}"
 VARIANTS="${4:-standard,yjit,jemalloc,jemalloc-yjit}"
 
+# Resolve workspace preference: BORINGCACHE_DEFAULT_WORKSPACE > WORKSPACE > default
+DEFAULT_BORINGCACHE_WORKSPACE="ruby/ruby"
+BORINGCACHE_WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-${WORKSPACE:-$DEFAULT_BORINGCACHE_WORKSPACE}}"
+echo "Using BoringCache workspace: $BORINGCACHE_WORKSPACE"
+
 echo "Building Ruby $RUBY_VERSION for $PLATFORM-$ARCH with variants: $VARIANTS"
 
 # Function to configure variant-specific options
@@ -802,7 +807,7 @@ if (( ${#BUILT_VARIANTS[@]} )); then
         # CLI now automatically detects and includes SBOM files
         # The sbom.json file in RUBY_BASE_DIR will be detected and included
         # Correct format: boringcache save <WORKSPACE> <TAG:PATH>
-        if boringcache save ruby/ruby "$cache_tag:$RUBY_BASE_DIR"; then
+        if boringcache save "$BORINGCACHE_WORKSPACE" "$cache_tag:$RUBY_BASE_DIR"; then
             echo "✓ Successfully cached Ruby $RUBY_VERSION ($variant) with SBOM to BoringCache"
         else
             echo "✗ Failed to cache Ruby $RUBY_VERSION ($variant) to BoringCache"
