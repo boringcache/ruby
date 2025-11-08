@@ -149,6 +149,7 @@ jobs:
             -w /workspace \
             -e BORINGCACHE_API_TOKEN="${BORINGCACHE_API_TOKEN}" \
             -e BORINGCACHE_API_URL="${BORINGCACHE_API_URL}" \
+            -e BORINGCACHE_DEFAULT_WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE}" \
             ${{ matrix.container }} \
             /bin/sh -c '
               set -e
