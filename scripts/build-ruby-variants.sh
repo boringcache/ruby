@@ -552,21 +552,12 @@ EOF
                 # Test with wrapper
                 if "$WRAPPER_SCRIPT" --version; then
                     echo "✓ Ruby wrapper is working for variant: $variant"
-                    # Use wrapper for SBOM generation
                     RUBY_BIN="$WRAPPER_SCRIPT"
                 else
                     echo "✗ Ruby wrapper also failed for variant: $variant"
                     FAILED_VARIANTS+=("$variant")
                     return 1
                 fi
-            fi
-            
-            # Generate SBOM
-            echo "Generating SBOM for Ruby $RUBY_VERSION ($variant variant)..."
-            if ./scripts/generate-sbom.sh "$variant" "$RUBY_PREFIX" "$RUBY_BIN" "$RUBY_VERSION" "$PLATFORM" "$ARCH"; then
-                echo "✓ SBOM generated successfully"
-            else
-                echo "✗ SBOM generation failed"
             fi
             
             # Mark build as successful (upload will happen later)
@@ -585,16 +576,6 @@ EOF
         echo "----------------------------------------"
         return 1
     fi
-}
-
-# Function to generate SBOM for Ruby installation
-generate_sbom() {
-    local variant="$1"
-    local ruby_prefix="$2"
-    local ruby_bin="${3:-$ruby_prefix/bin/ruby}"
-    
-    # Use external SBOM generation script
-    ./scripts/generate-sbom.sh "$variant" "$ruby_prefix" "$ruby_bin" "$RUBY_VERSION" "$PLATFORM" "$ARCH"
 }
 
 # Set architecture-specific variables
@@ -799,14 +780,11 @@ if (( ${#BUILT_VARIANTS[@]} )); then
         fi
         
         echo "Uploading $variant variant to BoringCache with tag: $cache_tag"
-        echo "SBOM file will be automatically detected and included by CLI"
         echo "DEBUG: BoringCache CLI version: $(boringcache --version 2>/dev/null || echo 'unknown')"
         
-        # CLI now automatically detects and includes SBOM files
-        # The sbom.json file in RUBY_BASE_DIR will be detected and included
         # Correct format: boringcache save <WORKSPACE> <TAG:PATH>
         if boringcache save "$BORINGCACHE_WORKSPACE" "$cache_tag:$RUBY_BASE_DIR"; then
-            echo "✓ Successfully cached Ruby $RUBY_VERSION ($variant) with SBOM to BoringCache"
+            echo "✓ Successfully cached Ruby $RUBY_VERSION ($variant) to BoringCache"
         else
             echo "✗ Failed to cache Ruby $RUBY_VERSION ($variant) to BoringCache"
             # Don't fail the entire script for upload errors

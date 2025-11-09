@@ -105,8 +105,9 @@ We build only **officially supported** Ruby versions (3 latest from each non-EOL
 - `3.5.0-preview1` - Preview/development version with latest features
 
 ### Ruby 3.4.x (Current Stable)
-- `3.4.6` (high priority) - Normal maintenance until Dec 2024, then security maintenance until Dec 2027
-- `3.4.5` (medium priority)
+- `3.4.7` (high priority) - Normal maintenance until Dec 2024, then security maintenance until Dec 2027
+- `3.4.6` (medium priority)
+- `3.4.5` (low priority)
 - `3.4.4` (low priority)
 
 ### Ruby 3.3.x (Stable) 
@@ -191,51 +192,6 @@ ruby --version
 # Install gems
 gem install rails
 ```
-
-## Software Bill of Materials (SBOM)
-
-Each Ruby build includes a comprehensive SBOM in CycloneDX format that provides:
-
-### SBOM Contents
-- **Ruby core component** with version and variant information
-- **Bundled gems** (minitest, bundler, rake, etc.) with versions
-- **Build tools** (ruby-build, BoringCache CLI) with versions
-- **Platform properties** (architecture, OS, variant features)
-
-### SBOM Example
-```json
-{
-  "bomFormat": "CycloneDX",
-  "specVersion": "1.4",
-  "metadata": {
-    "component": {
-      "name": "ruby-yjit",
-      "version": "3.3.8",
-      "description": "Ruby 3.3.8 (yjit variant) for ubuntu-22-04-amd64"
-    }
-  },
-  "components": [
-    {
-      "type": "application",
-      "name": "ruby",
-      "version": "3.3.8",
-      "properties": [
-        { "name": "ruby:variant", "value": "yjit" },
-        { "name": "ruby:yjit_enabled", "value": "yes" },
-        { "name": "ruby:jemalloc_enabled", "value": "false" },
-        { "name": "ruby:platform", "value": "ubuntu-22.04" },
-        { "name": "ruby:architecture", "value": "amd64" }
-      ]
-    }
-  ]
-}
-```
-
-### SBOM Features
-- **Automatic detection** by BoringCache CLI
-- **Security scanning** capability
-- **Compliance auditing** support
-- **Dependency tracking** for bundled gems
 
 ## Performance Benefits
 
@@ -361,8 +317,7 @@ export VARIANTS="standard,yjit"    # Variants to build
 1. **GitHub Actions** triggers on version updates or manual dispatch
 2. **Matrix strategy** builds across all platform/architecture combinations
 3. **ruby-build** compiles Ruby from source with variant-specific options
-4. **SBOM generation** creates software bill of materials
-5. **BoringCache upload** saves with automatic SBOM detection
+4. **BoringCache upload** saves artifacts for fast restores
 
 ### Variant Selection
 The build system automatically selects appropriate variants per platform:
@@ -373,7 +328,6 @@ The build system automatically selects appropriate variants per platform:
 ### Quality Assurance
 - **Build verification** tests Ruby installation
 - **Shared library checks** ensures dynamic linking works
-- **SBOM validation** verifies complete dependency capture
 - **Platform testing** across all supported architectures
 
 ## Troubleshooting

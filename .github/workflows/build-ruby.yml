@@ -488,7 +488,7 @@ jobs:
 
           # List all entries and clean up old ones (keep last 10 versions)
           echo "Cleaning up old Ruby cache entries..."
-          WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-boringcache/ruby}"
+          WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
           boringcache ls "$WORKSPACE" --limit 100 | \
             grep "^ruby-" | \
             tail -n +11 | \
