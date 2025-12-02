@@ -644,39 +644,57 @@ export RUBY_BUILD_CACHE_PATH="$SHARED_CACHE_DIR"
 
 echo "✓ Shared cache directory created at: $SHARED_CACHE_DIR"
 
-# Pre-download Ruby source tarball (without building)
-echo "Pre-downloading Ruby $RUBY_VERSION source tarball..."
+# Pre-download Ruby source (tarball or git clone with locking)
+echo "Pre-downloading Ruby $RUBY_VERSION source..."
 RUBY_MAJOR=$(echo "$RUBY_VERSION" | cut -d. -f1-2)
 RUBY_TARBALL="ruby-${RUBY_VERSION}.tar.gz"
 CACHE_FILE="$SHARED_CACHE_DIR/$RUBY_TARBALL"
+LOCK_FILE="$SHARED_CACHE_DIR/.download.lock"
 
-if [[ ! -f "$CACHE_FILE" ]]; then
-    # Try to download from official Ruby sources
-    RUBY_URLS=(
-        "https://cache.ruby-lang.org/pub/ruby/${RUBY_MAJOR}/ruby-${RUBY_VERSION}.tar.gz"
-        "https://ftp.ruby-lang.org/pub/ruby/${RUBY_MAJOR}/ruby-${RUBY_VERSION}.tar.gz"
-        "https://www.ruby-lang.org/pub/ruby/${RUBY_MAJOR}/ruby-${RUBY_VERSION}.tar.gz"
-    )
-    
-    DOWNLOAD_SUCCESS=false
-    for url in "${RUBY_URLS[@]}"; do
-        echo "Attempting download from: $url"
-        if curl -fsSL --connect-timeout 10 --max-time 300 -o "$CACHE_FILE" "$url"; then
-            echo "✓ Successfully downloaded Ruby source to cache"
-            DOWNLOAD_SUCCESS=true
-            break
+# Check if this is a dev/preview version that needs git clone
+if [[ "$RUBY_VERSION" == *"-dev"* ]] || [[ "$RUBY_VERSION" == *"-preview"* ]] || [[ "$RUBY_VERSION" == *"-rc"* ]]; then
+    echo "Development/preview version detected - using git clone with lock"
+    GIT_CACHE_DIR="$SHARED_CACHE_DIR/https_github.com_ruby_ruby.git"
+
+    # Use flock to serialize git clone across parallel jobs
+    (
+        flock -x 200
+        if [[ ! -d "$GIT_CACHE_DIR" ]]; then
+            echo "Cloning Ruby repository (holding lock)..."
+            git clone --bare --branch master https://github.com/ruby/ruby.git "$GIT_CACHE_DIR"
+            echo "✓ Git clone completed"
         else
-            echo "Failed to download from $url, trying next mirror..."
-            rm -f "$CACHE_FILE"
+            echo "✓ Git cache already exists at: $GIT_CACHE_DIR"
         fi
-    done
-    
-    if [[ "$DOWNLOAD_SUCCESS" = false ]]; then
-        echo "⚠ Could not pre-download Ruby source, ruby-build will handle downloads"
-        # Don't fail - let ruby-build handle it
-    fi
+    ) 200>"$LOCK_FILE"
 else
-    echo "✓ Ruby source already cached at: $CACHE_FILE"
+    # Regular release - download tarball
+    if [[ ! -f "$CACHE_FILE" ]]; then
+        RUBY_URLS=(
+            "https://cache.ruby-lang.org/pub/ruby/${RUBY_MAJOR}/ruby-${RUBY_VERSION}.tar.gz"
+            "https://ftp.ruby-lang.org/pub/ruby/${RUBY_MAJOR}/ruby-${RUBY_VERSION}.tar.gz"
+            "https://www.ruby-lang.org/pub/ruby/${RUBY_MAJOR}/ruby-${RUBY_VERSION}.tar.gz"
+        )
+
+        DOWNLOAD_SUCCESS=false
+        for url in "${RUBY_URLS[@]}"; do
+            echo "Attempting download from: $url"
+            if curl -fsSL --connect-timeout 10 --max-time 300 -o "$CACHE_FILE" "$url"; then
+                echo "✓ Successfully downloaded Ruby source to cache"
+                DOWNLOAD_SUCCESS=true
+                break
+            else
+                echo "Failed to download from $url, trying next mirror..."
+                rm -f "$CACHE_FILE"
+            fi
+        done
+
+        if [[ "$DOWNLOAD_SUCCESS" = false ]]; then
+            echo "⚠ Could not pre-download Ruby source, ruby-build will handle downloads"
+        fi
+    else
+        echo "✓ Ruby source already cached at: $CACHE_FILE"
+    fi
 fi
 
 # Build all variants in parallel
