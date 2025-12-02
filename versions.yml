@@ -1,45 +1,44 @@
 # Ruby versions to build and cache (only officially supported versions)
 versions:
+  # Ruby 4.0.x series (Development/Preview)
+  - version: "4.0-dev"
+    status: "preview"
+    priority: "low"
+    maintenance: "development"
+    eol_date: "TBD"
+  - version: "4.0.0-preview2"
+    status: "preview"
+    priority: "low"
+    maintenance: "preview"
+    eol_date: "TBD"
+
   # Ruby 3.5.x series (Preview/Development)
   - version: "3.5.0-preview1"
     status: "preview"
     priority: "low"
     maintenance: "preview"
     eol_date: "TBD"
-  
-  # Ruby 3.4.x series (Normal Maintenance until 2024-12-25, then Security Maintenance)
+
+  # Ruby 3.4.x series (Normal Maintenance until 2028-03-31)
   - version: "3.4.7"
     status: "stable"
     priority: "high"
     maintenance: "normal"
-    eol_date: "2027-12-25"
-  - version: "3.4.6"
-    status: "stable"
-    priority: "medium"
-    maintenance: "normal"
-    eol_date: "2027-12-25"
-  - version: "3.4.5"
-    status: "stable"
-    priority: "low"
-    maintenance: "normal"
-    eol_date: "2027-12-25"
-  - version: "3.4.4"
-    status: "stable"
-    priority: "low"
-    maintenance: "normal"
-    eol_date: "2027-12-25"
+    eol_date: "2028-03-31"
   
-  # Ruby 3.3.x series (Normal Maintenance until 2027-03-31)  
-  - version: "3.3.9"
+  # Ruby 3.3.x series (Normal Maintenance until 2027-03-31)
+  - version: "3.3.10"
     status: "stable"
     priority: "high"
     maintenance: "normal"
     eol_date: "2027-03-31"
-  - version: "3.3.8"
+
+  # Ruby 3.2.x series (Security Maintenance until 2026-03-31)
+  - version: "3.2.8"
     status: "stable"
     priority: "medium"
-    maintenance: "normal"
-    eol_date: "2027-03-31"
+    maintenance: "security"
+    eol_date: "2026-03-31"
 
 # Platform configurations (matching CLI platforms exactly)
 platforms:
@@ -92,9 +91,8 @@ platforms:
     
   # Native GitHub-hosted builds
   macos:
-    architectures: ["amd64", "arm64"]
+    architectures: ["arm64"]
     runners:
-      amd64: "macos-13"     # Intel (only option available)
       arm64: "macos-15"     # Apple Silicon (stable latest)
     build_type: "native"
     

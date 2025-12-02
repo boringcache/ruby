@@ -1,7 +1,7 @@
 # BoringCache Ruby Build System
 # Provides convenient targets for building and managing Ruby distributions
 
-RUBY_VERSION ?= 3.3.6
+RUBY_VERSION ?= 3.4.7
 PLATFORM ?= $(shell uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
 ARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 VARIANTS ?= standard,yjit,jemalloc,jemalloc-yjit
@@ -30,8 +30,8 @@ help: ## Show this help message
 	@echo "  BORINGCACHE_DEFAULT_WORKSPACE  Workspace used by CLI (default: $(BORINGCACHE_DEFAULT_WORKSPACE))"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make build RUBY_VERSION=3.2.3"
-	@echo "  make upload RUBY_VERSION=3.3.6 PLATFORM=ubuntu"
+	@echo "  make build RUBY_VERSION=3.4.7"
+	@echo "  make upload RUBY_VERSION=3.4.7 PLATFORM=ubuntu"
 	@echo "  make test-local"
 
 build: ## Build Ruby with all variants locally
@@ -83,13 +83,13 @@ test-local: ## Test local Ruby build
 
 # Development targets
 dev-build-all: ## Build all supported versions for current platform
-	@for version in 3.3.6 3.3.5 3.2.6 3.1.6; do \
+	@for version in 3.4.7 3.3.10 3.2.8; do \
 		echo "Building Ruby $$version..."; \
 		$(MAKE) build RUBY_VERSION=$$version || exit 1; \
 	done
 
 dev-upload-all: ## Upload all built versions (use with caution)
-	@for version in 3.3.6 3.3.5 3.2.6 3.1.6; do \
+	@for version in 3.4.7 3.3.10 3.2.8; do \
 		if [ -d "/tmp/ruby-$$version-$(ARCH)" ]; then \
 			echo "Uploading Ruby $$version..."; \
 			$(MAKE) upload RUBY_VERSION=$$version; \

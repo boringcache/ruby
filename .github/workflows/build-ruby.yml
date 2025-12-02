@@ -68,6 +68,18 @@ jobs:
               requested_platforms = [p.strip() for p in platforms_input.split(',')]
               platforms = {k: v for k, v in platforms.items() if k in requested_platforms}
 
+          # Define variant groups for parallel builds
+          # Group 1: standard,yjit (no jemalloc dependency)
+          # Group 2: jemalloc,jemalloc-yjit (share jemalloc compilation)
+          variant_groups = [
+              {'name': 'base', 'variants': 'standard,yjit'},
+              {'name': 'jemalloc', 'variants': 'jemalloc,jemalloc-yjit'}
+          ]
+          # Windows only supports standard variant
+          windows_variant_groups = [
+              {'name': 'base', 'variants': 'standard'}
+          ]
+
           # Create matrix matching CLI structure exactly
           matrix = []
           for version in versions:
@@ -78,43 +90,50 @@ jobs:
                   # Skip Windows for Ruby 3.3.x series due to compilation issues
                   if platform_name == 'windows' and version['version'].startswith('3.3.'):
                       continue
+
+                  # Select variant groups based on platform
+                  groups = windows_variant_groups if platform_name == 'windows' else variant_groups
+
                   for arch in platform_config['architectures']:
-                      if platform_config['build_type'] == 'native':
-                          # Native builds use specific runners per arch
-                          runner = platform_config['runners'][arch]
-                          # For macOS, include the runner version in the platform name
-                          if platform_name == 'macos':
-                              platform_id = runner  # Use runner name like 'macos-13' or 'macos-14'
-                          else:
-                              platform_id = platform_name
-                          
-                          matrix.append({
-                              'version': version['version'],
-                              'platform': platform_id,
-                              'arch': arch,
-                              'runner': runner,
-                              'build_type': 'native',
-                              'name': f'{platform_name}-{arch}',
-                              'use_docker': False
-                          })
-                      else:
-                          # Docker builds use architecture-specific runners
-                          if 'runners' in platform_config:
-                              # New format with per-arch runners
+                      for vgroup in groups:
+                          if platform_config['build_type'] == 'native':
+                              # Native builds use specific runners per arch
                               runner = platform_config['runners'][arch]
+                              # For macOS, include the runner version in the platform name
+                              if platform_name == 'macos':
+                                  platform_id = runner  # Use runner name like 'macos-15'
+                              else:
+                                  platform_id = platform_name
+
+                              matrix.append({
+                                  'version': version['version'],
+                                  'platform': platform_id,
+                                  'arch': arch,
+                                  'runner': runner,
+                                  'build_type': 'native',
+                                  'name': f'{platform_name}-{arch}-{vgroup[\"name\"]}',
+                                  'use_docker': False,
+                                  'variant_group': vgroup['variants']
+                              })
                           else:
-                              # Legacy format with single runner
-                              runner = platform_config['runner']
-                          matrix.append({
-                              'version': version['version'],
-                              'platform': platform_name,
-                              'arch': arch,
-                              'runner': runner,
-                              'container': platform_config['container'],
-                              'build_type': 'docker',
-                              'name': f'{platform_name}-{arch}',
-                              'use_docker': True
-                          })
+                              # Docker builds use architecture-specific runners
+                              if 'runners' in platform_config:
+                                  # New format with per-arch runners
+                                  runner = platform_config['runners'][arch]
+                              else:
+                                  # Legacy format with single runner
+                                  runner = platform_config['runner']
+                              matrix.append({
+                                  'version': version['version'],
+                                  'platform': platform_name,
+                                  'arch': arch,
+                                  'runner': runner,
+                                  'container': platform_config['container'],
+                                  'build_type': 'docker',
+                                  'name': f'{platform_name}-{arch}-{vgroup[\"name\"]}',
+                                  'use_docker': True,
+                                  'variant_group': vgroup['variants']
+                              })
 
           # Output matrix
           matrix_json = json.dumps({'include': matrix})
@@ -321,8 +340,8 @@ jobs:
               # Native compilation - using native ARM64 runners
               echo "Using native ${{ matrix.arch }} runner for ${{ matrix.platform }}"
               
-              # Build Ruby using our script with all variants
-              make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }}
+              # Build Ruby using our script with variant group
+              make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }} VARIANTS="${{ matrix.variant_group }}"
             '
         env:
           BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
@@ -467,13 +486,13 @@ jobs:
       - name: Build and Upload Ruby (Unix Native)
         if: matrix.use_docker != true && matrix.platform != 'windows'
         run: |
-          make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }}
+          make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }} VARIANTS="${{ matrix.variant_group }}"
 
       - name: Build and Upload Ruby (Windows)
         if: matrix.use_docker != true && matrix.platform == 'windows'
         shell: msys2 {0}
         run: |
-          make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }}
+          make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }} VARIANTS="${{ matrix.variant_group }}"
 
   cleanup:
     needs: [build-ruby]
