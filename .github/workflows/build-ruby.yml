@@ -320,10 +320,10 @@ jobs:
               # Install BoringCache CLI using the standard install script
               if ! command -v boringcache &> /dev/null; then
                 echo "Installing BoringCache CLI..."
-                if ! curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | sh; then
+                if ! curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash; then
                   echo "BoringCache CLI installation failed, retrying..."
                   sleep 2
-                  curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | sh
+                  curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
                 fi
                 # In Docker containers, PATH needs to be updated for the current session
                 export PATH="$HOME/.local/bin:$PATH"
@@ -357,13 +357,13 @@ jobs:
             echo "Runner: ${{ matrix.runner }}"
             echo "Platform: ${{ matrix.platform }}"
             echo "Arch: ${{ matrix.arch }}"
-            ldd --version | head -1
+            ldd --version 2>/dev/null | head -1 || true
             
             # Use standard install script which automatically gets the latest version
             # Add retry logic for network issues
             for attempt in 1 2 3; do
               echo "Attempt $attempt to install BoringCache CLI..."
-              if curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | sh; then
+              if curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash; then
                 echo "BoringCache CLI installation succeeded on attempt $attempt"
                 break
               else
@@ -371,7 +371,7 @@ jobs:
                 if [ $attempt -eq 3 ]; then
                   echo "All attempts failed, trying fallback with generic linux binary..."
                   export BORINGCACHE_PLATFORM=linux
-                  curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | sh
+                  curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
                 fi
                 sleep 2
               fi
@@ -479,7 +479,7 @@ jobs:
         shell: msys2 {0}
         run: |
           if ! command -v boringcache &> /dev/null; then
-            curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | sh
+            curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
             echo "$HOME/.local/bin" >> $GITHUB_PATH
           fi
 
@@ -502,7 +502,7 @@ jobs:
       - name: Clean up old cache entries
         run: |
           # Install BoringCache CLI
-          curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | sh
+          curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
           # List all entries and clean up old ones (keep last 10 versions)
