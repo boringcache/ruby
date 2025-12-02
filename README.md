@@ -20,7 +20,7 @@ ruby --version
 
 | Series | Version | Status | EOL |
 |--------|---------|--------|-----|
-| **4.0** | 4.0-dev, 4.0.0-preview2 | Preview | TBD |
+| **4.0** | 4.0.0-preview2 | Preview | TBD |
 | **3.5** | 3.5.0-preview1 | Preview | TBD |
 | **3.4** | 3.4.7 | Stable | Mar 2028 |
 | **3.3** | 3.3.10 | Stable | Mar 2027 |
@@ -28,16 +28,16 @@ ruby --version
 
 ## Supported Platforms
 
-| Platform | Architectures | Variants |
-|----------|---------------|----------|
-| Ubuntu 22.04 | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit |
-| Ubuntu 24.04 | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit |
-| Debian Bookworm | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit |
-| Debian Bullseye | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit |
-| Alpine Linux | amd64 | standard, yjit, jemalloc, jemalloc-yjit |
-| Arch Linux | amd64 | standard, yjit, jemalloc, jemalloc-yjit |
-| macOS 15 | arm64 | standard, yjit, jemalloc, jemalloc-yjit |
-| Windows | amd64, arm64 | standard only |
+| Platform | Architectures | Variants | EOL |
+|----------|---------------|----------|-----|
+| Ubuntu 20.04 | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit | Apr 2025 |
+| Ubuntu 22.04 | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit | Apr 2027 |
+| Ubuntu 24.04 | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit | Apr 2029 |
+| Debian Bookworm | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit | Jun 2028 |
+| Alpine Linux | amd64 | standard, yjit, jemalloc, jemalloc-yjit | Rolling |
+| Arch Linux | amd64 | standard, yjit, jemalloc, jemalloc-yjit | Rolling |
+| macOS 15 | arm64 | standard, yjit, jemalloc, jemalloc-yjit | - |
+| Windows | amd64, arm64 | standard only | - |
 
 ## Variants
 

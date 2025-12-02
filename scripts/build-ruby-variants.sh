@@ -656,17 +656,35 @@ if [[ "$RUBY_VERSION" == *"-dev"* ]] || [[ "$RUBY_VERSION" == *"-preview"* ]] ||
     echo "Development/preview version detected - using git clone with lock"
     GIT_CACHE_DIR="$SHARED_CACHE_DIR/https_github.com_ruby_ruby.git"
 
-    # Use flock to serialize git clone across parallel jobs
-    (
-        flock -x 200
-        if [[ ! -d "$GIT_CACHE_DIR" ]]; then
-            echo "Cloning Ruby repository (holding lock)..."
-            git clone --bare --branch master https://github.com/ruby/ruby.git "$GIT_CACHE_DIR"
-            echo "✓ Git clone completed"
-        else
-            echo "✓ Git cache already exists at: $GIT_CACHE_DIR"
+    # Cross-platform locking using mkdir (atomic on all platforms)
+    LOCK_DIR="$SHARED_CACHE_DIR/.git-clone.lock"
+    MAX_WAIT=300  # 5 minutes max wait
+    WAITED=0
+
+    while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+        if [[ $WAITED -ge $MAX_WAIT ]]; then
+            echo "⚠ Lock wait timeout, proceeding anyway..."
+            break
         fi
-    ) 200>"$LOCK_FILE"
+        echo "Waiting for git clone lock (${WAITED}s)..."
+        sleep 5
+        WAITED=$((WAITED + 5))
+    done
+
+    # Ensure lock is released on exit
+    trap "rmdir '$LOCK_DIR' 2>/dev/null || true" EXIT
+
+    if [[ ! -d "$GIT_CACHE_DIR" ]]; then
+        echo "Cloning Ruby repository (holding lock)..."
+        git clone --bare --branch master https://github.com/ruby/ruby.git "$GIT_CACHE_DIR"
+        echo "✓ Git clone completed"
+    else
+        echo "✓ Git cache already exists at: $GIT_CACHE_DIR"
+    fi
+
+    # Release lock
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+    trap - EXIT
 else
     # Regular release - download tarball
     if [[ ! -f "$CACHE_FILE" ]]; then

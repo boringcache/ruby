@@ -1,11 +1,6 @@
 # Ruby versions to build and cache (only officially supported versions)
 versions:
-  # Ruby 4.0.x series (Development/Preview)
-  - version: "4.0-dev"
-    status: "preview"
-    priority: "low"
-    maintenance: "development"
-    eol_date: "TBD"
+  # Ruby 4.0.x series (Preview)
   - version: "4.0.0-preview2"
     status: "preview"
     priority: "low"
@@ -41,61 +36,67 @@ versions:
     eol_date: "2026-03-31"
 
 # Platform configurations (matching CLI platforms exactly)
+# Only includes non-EOL operating systems
 platforms:
-  # Native GitHub-hosted builds
+  # Ubuntu LTS releases (native GitHub Actions runners)
+  ubuntu-20.04:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "ubuntu-20.04"
+      arm64: "ubuntu-22.04-arm"  # No 20.04 ARM runner, use Docker fallback
+    build_type: "native"
+    eol_date: "2025-04-02"
+
   ubuntu-22.04:
-    architectures: ["amd64", "arm64"] 
+    architectures: ["amd64", "arm64"]
     runners:
       amd64: "ubuntu-22.04"
-      arm64: "ubuntu-22.04-arm"  # Correct ARM runner name
+      arm64: "ubuntu-22.04-arm"
     build_type: "native"
-    
+    eol_date: "2027-04-01"
+
   ubuntu-24.04:
     architectures: ["amd64", "arm64"]
     runners:
       amd64: "ubuntu-24.04"
-      arm64: "ubuntu-24.04-arm"  # This runner has GLIBC 2.39 matching the CLI binary
+      arm64: "ubuntu-24.04-arm"
     build_type: "native"
-    
-  # Docker builds for precise compatibility (using native runners)
+    eol_date: "2029-04-01"
+
+  # Debian releases (Docker builds)
   debian-bookworm:
     architectures: ["amd64", "arm64"]
     runners:
       amd64: "ubuntu-latest"
-      arm64: "ubuntu-22.04-arm"  # Use Ubuntu 22.04 ARM runner for Docker
+      arm64: "ubuntu-24.04-arm"
     container: "debian:bookworm-slim"
     build_type: "docker"
-    
-  debian-bullseye:
-    architectures: ["amd64", "arm64"]
-    runners:
-      amd64: "ubuntu-latest"
-      arm64: "ubuntu-22.04-arm"  # Use Ubuntu 22.04 ARM runner for Docker
-    container: "debian:bullseye-slim"
-    build_type: "docker"
-    
+    eol_date: "2028-06-01"
+
+  # Alpine Linux (rolling release)
   alpine:
-    architectures: ["amd64"]  # Only amd64 for now - no Alpine ARM64 boringcache binary available
+    architectures: ["amd64"]
     runners:
       amd64: "ubuntu-latest"
     container: "alpine:latest"
     build_type: "docker"
-    
-  # Arch Linux builds (Docker on native runners)
+
+  # Arch Linux (rolling release)
   arch:
-    architectures: ["amd64"]  # ARM64 not available for archlinux:latest Docker image
+    architectures: ["amd64"]
     runners:
       amd64: "ubuntu-latest"
     container: "archlinux:latest"
     build_type: "docker"
-    
-  # Native GitHub-hosted builds
+
+  # macOS (native GitHub Actions runners)
   macos:
     architectures: ["arm64"]
     runners:
-      arm64: "macos-15"     # Apple Silicon (stable latest)
+      arm64: "macos-15"
     build_type: "native"
-    
+
+  # Windows (native GitHub Actions runners)
   windows:
     architectures: ["amd64", "arm64"]
     runners:
