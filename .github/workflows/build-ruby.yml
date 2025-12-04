@@ -473,6 +473,7 @@ jobs:
             mingw-w64-x86_64-imagemagick
             mingw-w64-x86_64-sqlite3
             mingw-w64-x86_64-postgresql
+            mingw-w64-x86_64-gmp
 
       - name: Install BoringCache CLI (Windows)
         if: matrix.use_docker != true && matrix.platform == 'windows'

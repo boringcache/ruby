@@ -29,7 +29,7 @@ versions:
     eol_date: "2027-03-31"
 
   # Ruby 3.2.x series (Security Maintenance until 2026-03-31)
-  - version: "3.2.8"
+  - version: "3.2.9"
     status: "stable"
     priority: "medium"
     maintenance: "security"
