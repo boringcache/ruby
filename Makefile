@@ -45,8 +45,8 @@ upload: ## Upload built Ruby to BoringCache (requires build first)
 		exit 1; \
 	fi
 	@echo "Uploading Ruby $(RUBY_VERSION) to $(BORINGCACHE_DEFAULT_WORKSPACE)..."
-	RUST_LOG=debug boringcache save $(BORINGCACHE_DEFAULT_WORKSPACE) "ruby-$(RUBY_VERSION):$(INSTALL_DIR)" \
-		--description "Ruby $(RUBY_VERSION) for $(PLATFORM) $(ARCH)" -v
+	boringcache save $(BORINGCACHE_DEFAULT_WORKSPACE) "ruby-$(RUBY_VERSION):$(INSTALL_DIR)" \
+		--description "Ruby $(RUBY_VERSION) for $(PLATFORM) $(ARCH)"
 
 list-cache: ## List available Ruby versions in BoringCache
 	@echo "Available Ruby versions in $(BORINGCACHE_DEFAULT_WORKSPACE):"

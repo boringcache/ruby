@@ -30,7 +30,6 @@ ruby --version
 
 | Platform | Architectures | Variants | EOL |
 |----------|---------------|----------|-----|
-| Ubuntu 20.04 | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit | Apr 2025 |
 | Ubuntu 22.04 | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit | Apr 2027 |
 | Ubuntu 24.04 | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit | Apr 2029 |
 | Debian Bookworm | amd64, arm64 | standard, yjit, jemalloc, jemalloc-yjit | Jun 2028 |

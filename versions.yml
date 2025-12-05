@@ -39,14 +39,6 @@ versions:
 # Only includes non-EOL operating systems
 platforms:
   # Ubuntu LTS releases (native GitHub Actions runners)
-  ubuntu-20.04:
-    architectures: ["amd64", "arm64"]
-    runners:
-      amd64: "ubuntu-20.04"
-      arm64: "ubuntu-22.04-arm"  # No 20.04 ARM runner, use Docker fallback
-    build_type: "native"
-    eol_date: "2025-04-02"
-
   ubuntu-22.04:
     architectures: ["amd64", "arm64"]
     runners:
