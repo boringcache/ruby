@@ -114,32 +114,73 @@ build_variant() {
     if ruby-build "$RUBY_VERSION" "$RUBY_PREFIX" 2>&1 | tee "/tmp/ruby-build-${variant}-output.log"; then
         echo "✓ Ruby build completed for variant: $variant"
 
+        # On Windows/MSYS2, resolve the actual installation path first
+        if [[ "$PLATFORM" == "windows" ]] && [[ ! -d "$RUBY_PREFIX" ]]; then
+            # Method 1: Parse build log for actual install path
+            ACTUAL_PATH=$(grep "==> Installed ruby-$RUBY_VERSION to" "/tmp/ruby-build-${variant}-output.log" 2>/dev/null | tail -1 | sed 's/.*==> Installed ruby-[^ ]* to //')
+            if [[ -n "$ACTUAL_PATH" ]] && [[ -d "$ACTUAL_PATH" ]]; then
+                RUBY_PREFIX="$ACTUAL_PATH"
+            elif [[ -n "$ACTUAL_PATH" ]]; then
+                # Try Windows drive mappings
+                for drive in "C" "D" "E"; do
+                    WIN_PATH=$(echo "$ACTUAL_PATH" | sed "s|^/tmp|${drive}:/a/_temp/msys64/tmp|")
+                    if [[ -d "$WIN_PATH" ]]; then
+                        if command -v cygpath >/dev/null 2>&1; then
+                            RUBY_PREFIX=$(cygpath -u "$WIN_PATH" 2>/dev/null || echo "$WIN_PATH")
+                        else
+                            RUBY_PREFIX="$WIN_PATH"
+                        fi
+                        break
+                    fi
+                done
+            fi
+
+            # Method 2: Search filesystem
+            if [[ ! -d "$RUBY_PREFIX" ]]; then
+                for search_base in "/tmp" "/c" "/d"; do
+                    if [[ -d "$search_base" ]]; then
+                        FOUND=$(find "$search_base" -maxdepth 3 -name "ruby-$RUBY_VERSION-$variant-$ARCH" -type d 2>/dev/null | head -1)
+                        if [[ -n "$FOUND" ]]; then
+                            if [[ -d "$FOUND/ruby/bin" ]]; then
+                                RUBY_PREFIX="$FOUND/ruby"
+                                break
+                            elif [[ -d "$FOUND/bin" ]]; then
+                                RUBY_PREFIX="$FOUND"
+                                break
+                            fi
+                        fi
+                    fi
+                done
+            fi
+
+            # Method 3: Use cygpath with TEMP
+            if [[ ! -d "$RUBY_PREFIX" ]] && command -v cygpath >/dev/null 2>&1; then
+                WIN_TEMP=$(cygpath -u "$TEMP" 2>/dev/null || echo "")
+                if [[ -n "$WIN_TEMP" ]] && [[ -d "$WIN_TEMP" ]]; then
+                    FOUND=$(find "$WIN_TEMP" -maxdepth 3 -name "*ruby-$RUBY_VERSION-$variant-$ARCH*" -type d 2>/dev/null | head -1)
+                    if [[ -n "$FOUND" ]]; then
+                        if [[ -d "$FOUND/ruby/bin" ]]; then
+                            RUBY_PREFIX="$FOUND/ruby"
+                        elif [[ -d "$FOUND/bin" ]]; then
+                            RUBY_PREFIX="$FOUND"
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
         # Locate Ruby binary
         RUBY_BINARY=""
         if [[ "$PLATFORM" == "windows" ]]; then
-            # On Windows/MSYS2, check multiple possible locations
-            for alt_ruby in "$RUBY_PREFIX/bin/ruby.exe" "$RUBY_PREFIX/bin/ruby"; do
+            for alt_ruby in "$RUBY_PREFIX/bin/ruby.exe" "$RUBY_PREFIX/bin/ruby" "$RUBY_BASE_DIR/bin/ruby.exe" "$RUBY_BASE_DIR/bin/ruby"; do
                 if [[ -f "$alt_ruby" ]] && [[ -x "$alt_ruby" ]]; then
                     RUBY_BINARY="$alt_ruby"
                     break
                 fi
             done
-            # If not found, search in the base directory
+            # Search if still not found
             if [[ -z "$RUBY_BINARY" ]] && [[ -d "$RUBY_BASE_DIR" ]]; then
-                RUBY_BINARY=$(find "$RUBY_BASE_DIR" -name "ruby.exe" -o -name "ruby" 2>/dev/null | head -1)
-            fi
-            # Last resort: parse the build log for actual install path
-            if [[ -z "$RUBY_BINARY" ]]; then
-                ACTUAL_PATH=$(grep "==> Installed ruby-$RUBY_VERSION to" "/tmp/ruby-build-${variant}-output.log" 2>/dev/null | sed 's/.*==> Installed ruby-[^ ]* to //')
-                if [[ -n "$ACTUAL_PATH" ]]; then
-                    for alt_ruby in "$ACTUAL_PATH/bin/ruby.exe" "$ACTUAL_PATH/bin/ruby"; do
-                        if [[ -f "$alt_ruby" ]] && [[ -x "$alt_ruby" ]]; then
-                            RUBY_BINARY="$alt_ruby"
-                            RUBY_PREFIX="$ACTUAL_PATH"
-                            break
-                        fi
-                    done
-                fi
+                RUBY_BINARY=$(find "$RUBY_BASE_DIR" \( -name "ruby.exe" -o -name "ruby" \) -type f 2>/dev/null | head -1)
             fi
         else
             if [[ -f "$RUBY_PREFIX/bin/ruby" ]]; then
