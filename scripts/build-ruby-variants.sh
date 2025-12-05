@@ -117,12 +117,30 @@ build_variant() {
         # Locate Ruby binary
         RUBY_BINARY=""
         if [[ "$PLATFORM" == "windows" ]]; then
+            # On Windows/MSYS2, check multiple possible locations
             for alt_ruby in "$RUBY_PREFIX/bin/ruby.exe" "$RUBY_PREFIX/bin/ruby"; do
                 if [[ -f "$alt_ruby" ]] && [[ -x "$alt_ruby" ]]; then
                     RUBY_BINARY="$alt_ruby"
                     break
                 fi
             done
+            # If not found, search in the base directory
+            if [[ -z "$RUBY_BINARY" ]] && [[ -d "$RUBY_BASE_DIR" ]]; then
+                RUBY_BINARY=$(find "$RUBY_BASE_DIR" -name "ruby.exe" -o -name "ruby" 2>/dev/null | head -1)
+            fi
+            # Last resort: parse the build log for actual install path
+            if [[ -z "$RUBY_BINARY" ]]; then
+                ACTUAL_PATH=$(grep "==> Installed ruby-$RUBY_VERSION to" "/tmp/ruby-build-${variant}-output.log" 2>/dev/null | sed 's/.*==> Installed ruby-[^ ]* to //')
+                if [[ -n "$ACTUAL_PATH" ]]; then
+                    for alt_ruby in "$ACTUAL_PATH/bin/ruby.exe" "$ACTUAL_PATH/bin/ruby"; do
+                        if [[ -f "$alt_ruby" ]] && [[ -x "$alt_ruby" ]]; then
+                            RUBY_BINARY="$alt_ruby"
+                            RUBY_PREFIX="$ACTUAL_PATH"
+                            break
+                        fi
+                    done
+                fi
+            fi
         else
             if [[ -f "$RUBY_PREFIX/bin/ruby" ]]; then
                 RUBY_BINARY="$RUBY_PREFIX/bin/ruby"
