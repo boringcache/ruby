@@ -220,7 +220,19 @@ EOF
         fi
     else
         echo "✗ Ruby build failed for variant: $variant"
-        tail -50 "/tmp/ruby-build-${variant}-output.log" 2>/dev/null || true
+        echo ""
+        echo "=== Last 100 lines of build output ==="
+        tail -100 "/tmp/ruby-build-${variant}-output.log" 2>/dev/null || true
+        echo ""
+        echo "=== Checking ruby-build log directory ==="
+        RUBY_BUILD_LOG=$(ls -t /tmp/ruby-build.*.log 2>/dev/null | head -1)
+        if [[ -n "$RUBY_BUILD_LOG" ]] && [[ -f "$RUBY_BUILD_LOG" ]]; then
+            echo "=== Last 200 lines of $RUBY_BUILD_LOG ==="
+            tail -200 "$RUBY_BUILD_LOG" 2>/dev/null || true
+        fi
+        echo ""
+        echo "=== Build directory contents ==="
+        ls -la /tmp/ruby-build.*.* 2>/dev/null | head -20 || true
         return 1
     fi
 }
