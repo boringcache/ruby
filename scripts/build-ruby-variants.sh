@@ -328,20 +328,59 @@ else
     fi
 fi
 
+# Function to check if cache already exists
+cache_exists() {
+    local variant="$1"
+    local cache_tag=""
+
+    if [[ "$variant" == "standard" ]]; then
+        cache_tag="ruby-${RUBY_VERSION}"
+    else
+        cache_tag="ruby-${RUBY_VERSION}-${variant}"
+    fi
+
+    if command -v boringcache >/dev/null 2>&1; then
+        # Check if the cache tag exists (boringcache ls returns 0 if found)
+        if boringcache ls "$BORINGCACHE_WORKSPACE" 2>/dev/null | grep -q "^${cache_tag}$"; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
 # Build all variants in parallel
 IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
 declare -a BUILT_VARIANTS=()
 declare -a FAILED_VARIANTS=()
+declare -a SKIPPED_VARIANTS=()
 
-echo "Starting parallel builds for variants: ${VARIANT_ARRAY[*]}"
+# Check which variants need to be built
+declare -a VARIANTS_TO_BUILD=()
+for CURRENT_VARIANT in "${VARIANT_ARRAY[@]}"; do
+    CURRENT_VARIANT=$(echo "$CURRENT_VARIANT" | xargs)
+    if cache_exists "$CURRENT_VARIANT"; then
+        echo "⏭ Skipping $CURRENT_VARIANT variant - already cached"
+        SKIPPED_VARIANTS+=("$CURRENT_VARIANT")
+    else
+        VARIANTS_TO_BUILD+=("$CURRENT_VARIANT")
+    fi
+done
+
+if [[ ${#VARIANTS_TO_BUILD[@]} -eq 0 ]]; then
+    echo ""
+    echo "All variants already cached, nothing to build."
+    echo "Build Summary: Ruby $RUBY_VERSION for $PLATFORM-$ARCH"
+    echo "⏭ Skipped: ${SKIPPED_VARIANTS[*]}"
+    exit 0
+fi
+
+echo "Starting parallel builds for variants: ${VARIANTS_TO_BUILD[*]}"
 
 # Start all builds in background
 BUILD_PIDS=()
 VARIANT_PID_MAP=()
 
-for CURRENT_VARIANT in "${VARIANT_ARRAY[@]}"; do
-    CURRENT_VARIANT=$(echo "$CURRENT_VARIANT" | xargs)
-
+for CURRENT_VARIANT in "${VARIANTS_TO_BUILD[@]}"; do
     (
         export RUBY_BUILD_CACHE_PATH="$SHARED_CACHE_DIR"
         build_variant "$CURRENT_VARIANT" 2>&1 | tee "/tmp/build-${CURRENT_VARIANT}-full.log"
@@ -395,6 +434,9 @@ fi
 # Summary
 echo ""
 echo "Build Summary: Ruby $RUBY_VERSION for $PLATFORM-$ARCH"
+if (( ${#SKIPPED_VARIANTS[@]} )); then
+    echo "⏭ Skipped (cached): ${SKIPPED_VARIANTS[*]}"
+fi
 if (( ${#BUILT_VARIANTS[@]} )); then
     echo "✓ Success: ${BUILT_VARIANTS[*]}"
 fi

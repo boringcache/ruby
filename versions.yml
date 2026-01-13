@@ -70,6 +70,16 @@ platforms:
     build_type: "native"
     eol_date: "2029-04-01"
 
+  # Ubuntu 25.04 (Docker build - no native GitHub runner yet)
+  ubuntu-25.04:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "ubuntu-latest"
+      arm64: "ubuntu-24.04-arm"
+    container: "ubuntu:25.04"
+    build_type: "docker"
+    eol_date: "2026-01-01"
+
   # Debian releases (Docker builds)
   debian-bookworm:
     architectures: ["amd64", "arm64"]
