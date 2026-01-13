@@ -399,6 +399,15 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
           VARIANTS="${{ matrix.variant_group }}"
+          PLATFORM="${{ matrix.platform }}"
+          ARCH="${{ matrix.arch }}"
+
+          # Normalize arch for cache tag
+          case "$ARCH" in
+            amd64) CACHE_ARCH="x86_64" ;;
+            arm64) CACHE_ARCH="arm64" ;;
+            *) CACHE_ARCH="$ARCH" ;;
+          esac
 
           # Get list of cached entries
           CACHED_ENTRIES=$(boringcache ls "$WORKSPACE" 2>/dev/null || echo "")
@@ -408,12 +417,12 @@ jobs:
           for variant in "${VARIANT_ARRAY[@]}"; do
             variant=$(echo "$variant" | xargs)
             if [[ "$variant" == "standard" ]]; then
-              cache_tag="ruby-${{ matrix.version }}"
+              cache_tag="ruby-${{ matrix.version }}-${PLATFORM}-${CACHE_ARCH}"
             else
-              cache_tag="ruby-${{ matrix.version }}-${variant}"
+              cache_tag="ruby-${{ matrix.version }}-${variant}-${PLATFORM}-${CACHE_ARCH}"
             fi
 
-            if echo "$CACHED_ENTRIES" | grep -q "^${cache_tag}$"; then
+            if echo "$CACHED_ENTRIES" | grep -q "^${cache_tag}"; then
               echo "✓ Found cached: $cache_tag"
             else
               echo "✗ Not cached: $cache_tag"

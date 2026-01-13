@@ -333,15 +333,25 @@ cache_exists() {
     local variant="$1"
     local cache_tag=""
 
+    # Normalize arch for cache tag
+    local cache_arch=""
+    case "$ARCH" in
+        amd64|x86_64) cache_arch="x86_64" ;;
+        arm64|aarch64) cache_arch="arm64" ;;
+        *) cache_arch="$ARCH" ;;
+    esac
+
+    # Build cache tag with platform and arch
     if [[ "$variant" == "standard" ]]; then
-        cache_tag="ruby-${RUBY_VERSION}"
+        cache_tag="ruby-${RUBY_VERSION}-${PLATFORM}-${cache_arch}"
     else
-        cache_tag="ruby-${RUBY_VERSION}-${variant}"
+        cache_tag="ruby-${RUBY_VERSION}-${variant}-${PLATFORM}-${cache_arch}"
     fi
 
     if command -v boringcache >/dev/null 2>&1; then
-        # Check if the cache tag exists (boringcache ls returns 0 if found)
-        if boringcache ls "$BORINGCACHE_WORKSPACE" 2>/dev/null | grep -q "^${cache_tag}$"; then
+        # Check if the cache tag exists (partial match since boringcache may add extra info)
+        if boringcache ls "$BORINGCACHE_WORKSPACE" 2>/dev/null | grep -q "^${cache_tag}"; then
+            echo "  (found: $cache_tag)"
             return 0
         fi
     fi
@@ -411,19 +421,27 @@ echo "Build results: ${#BUILT_VARIANTS[@]} succeeded, ${#FAILED_VARIANTS[@]} fai
 
 # Upload all successful builds
 if (( ${#BUILT_VARIANTS[@]} )); then
+  # Normalize arch for cache tag
+  cache_arch=""
+  case "$ARCH" in
+    amd64|x86_64) cache_arch="x86_64" ;;
+    arm64|aarch64) cache_arch="arm64" ;;
+    *) cache_arch="$ARCH" ;;
+  esac
+
   for variant in "${BUILT_VARIANTS[@]}"; do
     RUBY_BASE_DIR="/tmp/ruby-${RUBY_VERSION}-${variant}-${ARCH}"
 
     if command -v boringcache >/dev/null 2>&1; then
         if [[ "$variant" == "standard" ]]; then
-            cache_tag="ruby-${RUBY_VERSION}"
+            cache_tag="ruby-${RUBY_VERSION}-${PLATFORM}-${cache_arch}"
         else
-            cache_tag="ruby-${RUBY_VERSION}-${variant}"
+            cache_tag="ruby-${RUBY_VERSION}-${variant}-${PLATFORM}-${cache_arch}"
         fi
 
-        echo "Uploading $variant variant to BoringCache..."
+        echo "Uploading $variant variant to BoringCache as $cache_tag..."
         if boringcache save "$BORINGCACHE_WORKSPACE" "$cache_tag:$RUBY_BASE_DIR"; then
-            echo "✓ Cached Ruby $RUBY_VERSION ($variant)"
+            echo "✓ Cached Ruby $RUBY_VERSION ($variant) -> $cache_tag"
         else
             echo "✗ Failed to cache Ruby $RUBY_VERSION ($variant)"
         fi
