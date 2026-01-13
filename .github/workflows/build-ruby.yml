@@ -91,6 +91,12 @@ jobs:
                   if platform_name == 'windows' and version['version'].startswith('3.3.'):
                       continue
 
+                  # Skip problematic Ruby versions on Windows due to MSYS2/GCC issues:
+                  # - 4.0.x: mkconfig.rb stdout file descriptor bug
+                  # - 3.2.x: GCC incompatible pointer type errors in mini_builtin.c
+                  if platform_name == 'windows' and (version['version'].startswith('4.0.') or version['version'].startswith('3.2.')):
+                      continue
+
                   # Select variant groups based on platform
                   groups = windows_variant_groups if platform_name == 'windows' else variant_groups
 
