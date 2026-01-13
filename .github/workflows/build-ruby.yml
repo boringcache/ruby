@@ -159,9 +159,58 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Early cache check for Docker builds (runs on host before container)
+      - name: Check if cache exists (Docker)
+        id: docker-cache-check
+        if: matrix.use_docker == true
+        run: |
+          # Install boringcache CLI on host for cache check
+          curl -sSL https://install.boringcache.com/install.sh | bash
+          export PATH="$HOME/.local/bin:$PATH"
+
+          WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
+          VARIANTS="${{ matrix.variant_group }}"
+          PLATFORM="${{ matrix.platform }}"
+          ARCH="${{ matrix.arch }}"
+
+          # Normalize arch for cache tag
+          case "$ARCH" in
+            amd64) CACHE_ARCH="x86_64" ;;
+            arm64) CACHE_ARCH="arm64" ;;
+            *) CACHE_ARCH="$ARCH" ;;
+          esac
+
+          # Get list of cached entries
+          CACHED_ENTRIES=$(boringcache ls "$WORKSPACE" 2>/dev/null || echo "")
+
+          ALL_CACHED=true
+          IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
+          for variant in "${VARIANT_ARRAY[@]}"; do
+            variant=$(echo "$variant" | xargs)
+            if [[ "$variant" == "standard" ]]; then
+              cache_tag="ruby-${{ matrix.version }}-${PLATFORM}-${CACHE_ARCH}"
+            else
+              cache_tag="ruby-${{ matrix.version }}-${variant}-${PLATFORM}-${CACHE_ARCH}"
+            fi
+
+            if echo "$CACHED_ENTRIES" | grep -q "^${cache_tag}"; then
+              echo "✓ Found cached: $cache_tag"
+            else
+              echo "✗ Not cached: $cache_tag"
+              ALL_CACHED=false
+            fi
+          done
+
+          if [[ "$ALL_CACHED" == "true" ]]; then
+            echo "⏭ All variants already cached, skipping build"
+            echo "skip_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+          fi
+
       # Docker builds for Debian/Alpine
       - name: Build Ruby in Docker container
-        if: matrix.use_docker == true
+        if: matrix.use_docker == true && steps.docker-cache-check.outputs.skip_build != 'true'
         run: |
           docker run --rm \
             -v "$PWD:/workspace" \
