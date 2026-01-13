@@ -392,8 +392,44 @@ jobs:
             fi
           fi
 
+      - name: Check if cache exists (Unix)
+        id: cache-check
+        if: matrix.use_docker != true && matrix.platform != 'windows'
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
+          VARIANTS="${{ matrix.variant_group }}"
+
+          # Get list of cached entries
+          CACHED_ENTRIES=$(boringcache ls "$WORKSPACE" 2>/dev/null || echo "")
+
+          ALL_CACHED=true
+          IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
+          for variant in "${VARIANT_ARRAY[@]}"; do
+            variant=$(echo "$variant" | xargs)
+            if [[ "$variant" == "standard" ]]; then
+              cache_tag="ruby-${{ matrix.version }}"
+            else
+              cache_tag="ruby-${{ matrix.version }}-${variant}"
+            fi
+
+            if echo "$CACHED_ENTRIES" | grep -q "^${cache_tag}$"; then
+              echo "✓ Found cached: $cache_tag"
+            else
+              echo "✗ Not cached: $cache_tag"
+              ALL_CACHED=false
+            fi
+          done
+
+          if [[ "$ALL_CACHED" == "true" ]]; then
+            echo "⏭ All variants already cached, skipping build"
+            echo "skip_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install build dependencies (Ubuntu)
-        if: matrix.use_docker != true && startsWith(matrix.platform, 'ubuntu')
+        if: matrix.use_docker != true && startsWith(matrix.platform, 'ubuntu') && steps.cache-check.outputs.skip_build != 'true'
         run: |
           sudo apt-get update
 
@@ -436,7 +472,7 @@ jobs:
             libcurl4-openssl-dev
 
       - name: Install build dependencies (macOS)
-        if: matrix.use_docker != true && startsWith(matrix.platform, 'macos')
+        if: matrix.use_docker != true && startsWith(matrix.platform, 'macos') && steps.cache-check.outputs.skip_build != 'true'
         run: |
           # GitHub-hosted macOS runners have Homebrew pre-installed
           # Core Ruby dependencies only
@@ -524,7 +560,7 @@ jobs:
           fi
 
       - name: Build and Upload Ruby (Unix Native)
-        if: matrix.use_docker != true && matrix.platform != 'windows'
+        if: matrix.use_docker != true && matrix.platform != 'windows' && steps.cache-check.outputs.skip_build != 'true'
         run: |
           make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }} VARIANTS="${{ matrix.variant_group }}"
 
