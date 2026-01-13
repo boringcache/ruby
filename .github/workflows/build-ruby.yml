@@ -480,8 +480,47 @@ jobs:
         shell: msys2 {0}
         run: |
           if ! command -v boringcache &> /dev/null; then
-            curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
+            echo "[INFO] Installing BoringCache CLI for Windows..."
+
+            # Create install directory
+            mkdir -p "$HOME/.local/bin"
+
+            # Get latest version from GitHub API
+            echo "[INFO] Fetching latest release version..."
+            VERSION=$(curl --connect-timeout 30 --max-time 60 -sL "https://api.github.com/repos/boringcache/cli/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "v0.1.1")
+            echo "[INFO] Latest version: $VERSION"
+
+            BINARY_URL="https://github.com/boringcache/cli/releases/download/${VERSION}/boringcache-windows-2022-amd64.exe"
+            DEST="$HOME/.local/bin/boringcache.exe"
+
+            # Download with retry logic and proper timeouts
+            for attempt in 1 2 3; do
+              echo "[INFO] Attempt $attempt: Downloading from $BINARY_URL..."
+              if curl --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 -fSL -o "$DEST" "$BINARY_URL"; then
+                echo "[INFO] Download succeeded on attempt $attempt"
+                break
+              else
+                echo "[WARNING] Download failed on attempt $attempt (exit code: $?)"
+                rm -f "$DEST" 2>/dev/null || true
+                if [ $attempt -eq 3 ]; then
+                  echo "[ERROR] All download attempts failed"
+                  exit 1
+                fi
+                sleep 10
+              fi
+            done
+
+            # Make executable and verify
+            chmod +x "$DEST"
             echo "$HOME/.local/bin" >> $GITHUB_PATH
+            export PATH="$HOME/.local/bin:$PATH"
+
+            if [ -f "$DEST" ] && "$DEST" --version; then
+              echo "[INFO] BoringCache CLI installed successfully"
+            else
+              echo "[ERROR] BoringCache CLI installation verification failed"
+              exit 1
+            fi
           fi
 
       - name: Build and Upload Ruby (Unix Native)
