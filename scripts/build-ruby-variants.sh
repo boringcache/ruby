@@ -328,10 +328,27 @@ else
     fi
 fi
 
+# Function to normalize platform name for cache tag
+normalize_platform() {
+    case "$1" in
+        ubuntu-22.04) echo "ubuntu-22" ;;
+        ubuntu-24.04) echo "ubuntu-24" ;;
+        ubuntu-25.04) echo "ubuntu-25" ;;
+        debian-bookworm) echo "debian-12" ;;
+        debian-bullseye) echo "debian-11" ;;
+        alpine) echo "alpine" ;;
+        arch) echo "arch-rolling" ;;
+        *) echo "$1" ;;
+    esac
+}
+
 # Function to check if cache already exists
 cache_exists() {
     local variant="$1"
     local cache_tag=""
+
+    # Normalize platform for cache tag
+    local cache_platform=$(normalize_platform "$PLATFORM")
 
     # Normalize arch for cache tag
     local cache_arch=""
@@ -343,9 +360,9 @@ cache_exists() {
 
     # Build cache tag with platform and arch
     if [[ "$variant" == "standard" ]]; then
-        cache_tag="ruby-${RUBY_VERSION}-${PLATFORM}-${cache_arch}"
+        cache_tag="ruby-${RUBY_VERSION}-${cache_platform}-${cache_arch}"
     else
-        cache_tag="ruby-${RUBY_VERSION}-${variant}-${PLATFORM}-${cache_arch}"
+        cache_tag="ruby-${RUBY_VERSION}-${variant}-${cache_platform}-${cache_arch}"
     fi
 
     if command -v boringcache >/dev/null 2>&1; then
@@ -421,7 +438,8 @@ echo "Build results: ${#BUILT_VARIANTS[@]} succeeded, ${#FAILED_VARIANTS[@]} fai
 
 # Upload all successful builds
 if (( ${#BUILT_VARIANTS[@]} )); then
-  # Normalize arch for cache tag
+  # Normalize platform and arch for cache tag
+  cache_platform=$(normalize_platform "$PLATFORM")
   cache_arch=""
   case "$ARCH" in
     amd64|x86_64) cache_arch="x86_64" ;;
@@ -434,9 +452,9 @@ if (( ${#BUILT_VARIANTS[@]} )); then
 
     if command -v boringcache >/dev/null 2>&1; then
         if [[ "$variant" == "standard" ]]; then
-            cache_tag="ruby-${RUBY_VERSION}-${PLATFORM}-${cache_arch}"
+            cache_tag="ruby-${RUBY_VERSION}-${cache_platform}-${cache_arch}"
         else
-            cache_tag="ruby-${RUBY_VERSION}-${variant}-${PLATFORM}-${cache_arch}"
+            cache_tag="ruby-${RUBY_VERSION}-${variant}-${cache_platform}-${cache_arch}"
         fi
 
         echo "Uploading $variant variant to BoringCache as $cache_tag..."

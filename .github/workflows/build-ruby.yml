@@ -173,6 +173,18 @@ jobs:
           PLATFORM="${{ matrix.platform }}"
           ARCH="${{ matrix.arch }}"
 
+          # Normalize platform name for cache tag
+          case "$PLATFORM" in
+            ubuntu-22.04) CACHE_PLATFORM="ubuntu-22" ;;
+            ubuntu-24.04) CACHE_PLATFORM="ubuntu-24" ;;
+            ubuntu-25.04) CACHE_PLATFORM="ubuntu-25" ;;
+            debian-bookworm) CACHE_PLATFORM="debian-12" ;;
+            debian-bullseye) CACHE_PLATFORM="debian-11" ;;
+            alpine) CACHE_PLATFORM="alpine" ;;
+            arch) CACHE_PLATFORM="arch-rolling" ;;
+            *) CACHE_PLATFORM="$PLATFORM" ;;
+          esac
+
           # Normalize arch for cache tag
           case "$ARCH" in
             amd64) CACHE_ARCH="x86_64" ;;
@@ -188,9 +200,9 @@ jobs:
           for variant in "${VARIANT_ARRAY[@]}"; do
             variant=$(echo "$variant" | xargs)
             if [[ "$variant" == "standard" ]]; then
-              cache_tag="ruby-${{ matrix.version }}-${PLATFORM}-${CACHE_ARCH}"
+              cache_tag="ruby-${{ matrix.version }}-${CACHE_PLATFORM}-${CACHE_ARCH}"
             else
-              cache_tag="ruby-${{ matrix.version }}-${variant}-${PLATFORM}-${CACHE_ARCH}"
+              cache_tag="ruby-${{ matrix.version }}-${variant}-${CACHE_PLATFORM}-${CACHE_ARCH}"
             fi
 
             if echo "$CACHED_ENTRIES" | grep -q "^${cache_tag}"; then
@@ -451,6 +463,18 @@ jobs:
           PLATFORM="${{ matrix.platform }}"
           ARCH="${{ matrix.arch }}"
 
+          # Normalize platform name for cache tag
+          case "$PLATFORM" in
+            ubuntu-22.04) CACHE_PLATFORM="ubuntu-22" ;;
+            ubuntu-24.04) CACHE_PLATFORM="ubuntu-24" ;;
+            ubuntu-25.04) CACHE_PLATFORM="ubuntu-25" ;;
+            debian-bookworm) CACHE_PLATFORM="debian-12" ;;
+            debian-bullseye) CACHE_PLATFORM="debian-11" ;;
+            alpine) CACHE_PLATFORM="alpine" ;;
+            arch) CACHE_PLATFORM="arch-rolling" ;;
+            *) CACHE_PLATFORM="$PLATFORM" ;;
+          esac
+
           # Normalize arch for cache tag
           case "$ARCH" in
             amd64) CACHE_ARCH="x86_64" ;;
@@ -466,9 +490,9 @@ jobs:
           for variant in "${VARIANT_ARRAY[@]}"; do
             variant=$(echo "$variant" | xargs)
             if [[ "$variant" == "standard" ]]; then
-              cache_tag="ruby-${{ matrix.version }}-${PLATFORM}-${CACHE_ARCH}"
+              cache_tag="ruby-${{ matrix.version }}-${CACHE_PLATFORM}-${CACHE_ARCH}"
             else
-              cache_tag="ruby-${{ matrix.version }}-${variant}-${PLATFORM}-${CACHE_ARCH}"
+              cache_tag="ruby-${{ matrix.version }}-${variant}-${CACHE_PLATFORM}-${CACHE_ARCH}"
             fi
 
             if echo "$CACHED_ENTRIES" | grep -q "^${cache_tag}"; then
