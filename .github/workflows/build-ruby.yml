@@ -176,50 +176,26 @@ jobs:
 
           WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
           VARIANTS="${{ matrix.variant_group }}"
-          PLATFORM="${{ matrix.platform }}"
-          ARCH="${{ matrix.arch }}"
 
-          # Normalize platform name for cache tag
-          case "$PLATFORM" in
-            ubuntu-22.04) CACHE_PLATFORM="ubuntu-22" ;;
-            ubuntu-24.04) CACHE_PLATFORM="ubuntu-24" ;;
-            ubuntu-25.04) CACHE_PLATFORM="ubuntu-25" ;;
-            debian-bookworm) CACHE_PLATFORM="debian-12" ;;
-            debian-bullseye) CACHE_PLATFORM="debian-11" ;;
-            alpine) CACHE_PLATFORM="alpine" ;;
-            arch) CACHE_PLATFORM="arch-rolling" ;;
-            *) CACHE_PLATFORM="$PLATFORM" ;;
-          esac
-
-          # Normalize arch for cache tag
-          case "$ARCH" in
-            amd64) CACHE_ARCH="x86_64" ;;
-            arm64) CACHE_ARCH="arm64" ;;
-            *) CACHE_ARCH="$ARCH" ;;
-          esac
-
-          # Get list of cached entries
-          CACHED_ENTRIES=$(boringcache ls "$WORKSPACE" 2>/dev/null || echo "")
-
-          ALL_CACHED=true
+          # Build comma-separated list of cache tags (CLI adds platform automatically)
+          TAGS=""
           IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
           for variant in "${VARIANT_ARRAY[@]}"; do
             variant=$(echo "$variant" | xargs)
             if [[ "$variant" == "standard" ]]; then
-              cache_tag="ruby-${{ matrix.version }}-${CACHE_PLATFORM}-${CACHE_ARCH}"
+              cache_tag="ruby-${{ matrix.version }}"
             else
-              cache_tag="ruby-${{ matrix.version }}-${variant}-${CACHE_PLATFORM}-${CACHE_ARCH}"
+              cache_tag="ruby-${{ matrix.version }}-${variant}"
             fi
-
-            if echo "$CACHED_ENTRIES" | grep -q "^${cache_tag}"; then
-              echo "✓ Found cached: $cache_tag"
+            if [[ -n "$TAGS" ]]; then
+              TAGS="${TAGS},${cache_tag}"
             else
-              echo "✗ Not cached: $cache_tag"
-              ALL_CACHED=false
+              TAGS="$cache_tag"
             fi
           done
 
-          if [[ "$ALL_CACHED" == "true" ]]; then
+          # Use boringcache check command (CLI adds platform suffix automatically)
+          if boringcache check "$WORKSPACE" "$TAGS" --fail-on-miss 2>/dev/null; then
             echo "⏭ All variants already cached, skipping build"
             echo "skip_build=true" >> $GITHUB_OUTPUT
           else
@@ -466,50 +442,26 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
           VARIANTS="${{ matrix.variant_group }}"
-          PLATFORM="${{ matrix.platform }}"
-          ARCH="${{ matrix.arch }}"
 
-          # Normalize platform name for cache tag
-          case "$PLATFORM" in
-            ubuntu-22.04) CACHE_PLATFORM="ubuntu-22" ;;
-            ubuntu-24.04) CACHE_PLATFORM="ubuntu-24" ;;
-            ubuntu-25.04) CACHE_PLATFORM="ubuntu-25" ;;
-            debian-bookworm) CACHE_PLATFORM="debian-12" ;;
-            debian-bullseye) CACHE_PLATFORM="debian-11" ;;
-            alpine) CACHE_PLATFORM="alpine" ;;
-            arch) CACHE_PLATFORM="arch-rolling" ;;
-            *) CACHE_PLATFORM="$PLATFORM" ;;
-          esac
-
-          # Normalize arch for cache tag
-          case "$ARCH" in
-            amd64) CACHE_ARCH="x86_64" ;;
-            arm64) CACHE_ARCH="arm64" ;;
-            *) CACHE_ARCH="$ARCH" ;;
-          esac
-
-          # Get list of cached entries
-          CACHED_ENTRIES=$(boringcache ls "$WORKSPACE" 2>/dev/null || echo "")
-
-          ALL_CACHED=true
+          # Build comma-separated list of cache tags (CLI adds platform automatically)
+          TAGS=""
           IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
           for variant in "${VARIANT_ARRAY[@]}"; do
             variant=$(echo "$variant" | xargs)
             if [[ "$variant" == "standard" ]]; then
-              cache_tag="ruby-${{ matrix.version }}-${CACHE_PLATFORM}-${CACHE_ARCH}"
+              cache_tag="ruby-${{ matrix.version }}"
             else
-              cache_tag="ruby-${{ matrix.version }}-${variant}-${CACHE_PLATFORM}-${CACHE_ARCH}"
+              cache_tag="ruby-${{ matrix.version }}-${variant}"
             fi
-
-            if echo "$CACHED_ENTRIES" | grep -q "^${cache_tag}"; then
-              echo "✓ Found cached: $cache_tag"
+            if [[ -n "$TAGS" ]]; then
+              TAGS="${TAGS},${cache_tag}"
             else
-              echo "✗ Not cached: $cache_tag"
-              ALL_CACHED=false
+              TAGS="$cache_tag"
             fi
           done
 
-          if [[ "$ALL_CACHED" == "true" ]]; then
+          # Use boringcache check command (CLI adds platform suffix automatically)
+          if boringcache check "$WORKSPACE" "$TAGS" --fail-on-miss; then
             echo "⏭ All variants already cached, skipping build"
             echo "skip_build=true" >> $GITHUB_OUTPUT
           else

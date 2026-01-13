@@ -328,47 +328,21 @@ else
     fi
 fi
 
-# Function to normalize platform name for cache tag
-normalize_platform() {
-    case "$1" in
-        ubuntu-22.04) echo "ubuntu-22" ;;
-        ubuntu-24.04) echo "ubuntu-24" ;;
-        ubuntu-25.04) echo "ubuntu-25" ;;
-        debian-bookworm) echo "debian-12" ;;
-        debian-bullseye) echo "debian-11" ;;
-        alpine) echo "alpine" ;;
-        arch) echo "arch-rolling" ;;
-        *) echo "$1" ;;
-    esac
-}
-
-# Function to check if cache already exists
+# Function to check if cache already exists (CLI adds platform suffix automatically)
 cache_exists() {
     local variant="$1"
     local cache_tag=""
 
-    # Normalize platform for cache tag
-    local cache_platform=$(normalize_platform "$PLATFORM")
-
-    # Normalize arch for cache tag
-    local cache_arch=""
-    case "$ARCH" in
-        amd64|x86_64) cache_arch="x86_64" ;;
-        arm64|aarch64) cache_arch="arm64" ;;
-        *) cache_arch="$ARCH" ;;
-    esac
-
-    # Build cache tag with platform and arch
+    # Build base cache tag (CLI adds platform automatically)
     if [[ "$variant" == "standard" ]]; then
-        cache_tag="ruby-${RUBY_VERSION}-${cache_platform}-${cache_arch}"
+        cache_tag="ruby-${RUBY_VERSION}"
     else
-        cache_tag="ruby-${RUBY_VERSION}-${variant}-${cache_platform}-${cache_arch}"
+        cache_tag="ruby-${RUBY_VERSION}-${variant}"
     fi
 
     if command -v boringcache >/dev/null 2>&1; then
-        # Check if the cache tag exists (partial match since boringcache may add extra info)
-        if boringcache ls "$BORINGCACHE_WORKSPACE" 2>/dev/null | grep -q "^${cache_tag}"; then
-            echo "  (found: $cache_tag)"
+        # Use boringcache check command
+        if boringcache check "$BORINGCACHE_WORKSPACE" "$cache_tag" --fail-on-miss 2>/dev/null; then
             return 0
         fi
     fi
@@ -436,30 +410,22 @@ done
 echo ""
 echo "Build results: ${#BUILT_VARIANTS[@]} succeeded, ${#FAILED_VARIANTS[@]} failed"
 
-# Upload all successful builds
+# Upload all successful builds (CLI adds platform suffix automatically)
 if (( ${#BUILT_VARIANTS[@]} )); then
-  # Normalize platform and arch for cache tag
-  cache_platform=$(normalize_platform "$PLATFORM")
-  cache_arch=""
-  case "$ARCH" in
-    amd64|x86_64) cache_arch="x86_64" ;;
-    arm64|aarch64) cache_arch="arm64" ;;
-    *) cache_arch="$ARCH" ;;
-  esac
-
   for variant in "${BUILT_VARIANTS[@]}"; do
     RUBY_BASE_DIR="/tmp/ruby-${RUBY_VERSION}-${variant}-${ARCH}"
 
     if command -v boringcache >/dev/null 2>&1; then
+        # Build base cache tag (CLI adds platform automatically)
         if [[ "$variant" == "standard" ]]; then
-            cache_tag="ruby-${RUBY_VERSION}-${cache_platform}-${cache_arch}"
+            cache_tag="ruby-${RUBY_VERSION}"
         else
-            cache_tag="ruby-${RUBY_VERSION}-${variant}-${cache_platform}-${cache_arch}"
+            cache_tag="ruby-${RUBY_VERSION}-${variant}"
         fi
 
         echo "Uploading $variant variant to BoringCache as $cache_tag..."
         if boringcache save "$BORINGCACHE_WORKSPACE" "$cache_tag:$RUBY_BASE_DIR"; then
-            echo "✓ Cached Ruby $RUBY_VERSION ($variant) -> $cache_tag"
+            echo "✓ Cached Ruby $RUBY_VERSION ($variant)"
         else
             echo "✗ Failed to cache Ruby $RUBY_VERSION ($variant)"
         fi
