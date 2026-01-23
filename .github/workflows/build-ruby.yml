@@ -1,0 +1,630 @@
+name: Build and Cache Ruby
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "versions.yml"
+      - ".github/workflows/build-ruby.yml"
+      - "scripts/**"
+  pull_request:
+    paths:
+      - "versions.yml"
+      - ".github/workflows/build-ruby.yml"
+      - "scripts/**"
+  schedule:
+    # Build weekly on Sundays at 02:00 UTC
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      ruby_version:
+        description: "Ruby version to build (e.g., 3.3.6)"
+        required: false
+        type: string
+      platforms:
+        description: "Platforms to build (comma-separated: ubuntu-22.04,ubuntu-24.04,ubuntu-25.04,debian-bookworm,alpine,arch,macos,windows)"
+        required: false
+        default: "ubuntu-22.04,ubuntu-24.04,ubuntu-25.04,debian-bookworm,alpine,arch,macos,windows"
+        type: string
+
+env:
+  BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+  BORINGCACHE_DEFAULT_WORKSPACE: ${{ secrets.BORINGCACHE_DEFAULT_WORKSPACE || 'ruby/ruby' }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.setup.outputs.matrix }}
+      versions: ${{ steps.setup.outputs.versions }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup build matrix
+        id: setup
+        run: |
+          # Parse versions.yml and create build matrix matching CLI platforms exactly
+          python3 -c "
+          import yaml
+          import json
+          import os
+
+          with open('versions.yml', 'r') as f:
+              config = yaml.safe_load(f)
+
+          # Get input parameters
+          specific_version = '${{ github.event.inputs.ruby_version }}'
+          platforms_input = '${{ github.event.inputs.platforms }}'
+
+          # Filter versions
+          versions = config['versions']
+          if specific_version:
+              versions = [v for v in versions if v['version'] == specific_version]
+
+          # Filter platforms
+          platforms = config['platforms']
+          if platforms_input:
+              requested_platforms = [p.strip() for p in platforms_input.split(',')]
+              platforms = {k: v for k, v in platforms.items() if k in requested_platforms}
+
+          # Define variant groups for parallel builds
+          # Group 1: standard,yjit (no jemalloc dependency)
+          # Group 2: jemalloc,jemalloc-yjit (share jemalloc compilation)
+          variant_groups = [
+              {'name': 'base', 'variants': 'standard,yjit'},
+              {'name': 'jemalloc', 'variants': 'jemalloc,jemalloc-yjit'}
+          ]
+          # Windows only supports standard variant
+          windows_variant_groups = [
+              {'name': 'base', 'variants': 'standard'}
+          ]
+
+          # Create matrix matching CLI structure exactly
+          matrix = []
+          for version in versions:
+              for platform_name, platform_config in platforms.items():
+                  # Skip Windows for preview versions
+                  if version.get('status') == 'preview' and platform_name == 'windows':
+                      continue
+                  # Skip Windows for Ruby 3.3.x series due to compilation issues
+                  if platform_name == 'windows' and version['version'].startswith('3.3.'):
+                      continue
+
+                  # Skip problematic Ruby versions on Windows due to MSYS2/GCC issues:
+                  # - 4.0.x: mkconfig.rb stdout file descriptor bug
+                  # - 3.2.x: GCC incompatible pointer type errors in mini_builtin.c
+                  if platform_name == 'windows' and (version['version'].startswith('4.0.') or version['version'].startswith('3.2.')):
+                      continue
+
+                  # Select variant groups based on platform
+                  groups = windows_variant_groups if platform_name == 'windows' else variant_groups
+
+                  for arch in platform_config['architectures']:
+                      for vgroup in groups:
+                          if platform_config['build_type'] == 'native':
+                              # Native builds use specific runners per arch
+                              runner = platform_config['runners'][arch]
+                              # For macOS, include the runner version in the platform name
+                              if platform_name == 'macos':
+                                  platform_id = runner  # Use runner name like 'macos-15'
+                              else:
+                                  platform_id = platform_name
+
+                              matrix.append({
+                                  'version': version['version'],
+                                  'platform': platform_id,
+                                  'arch': arch,
+                                  'runner': runner,
+                                  'build_type': 'native',
+                                  'name': f'{platform_name}-{arch}-{vgroup[\"name\"]}',
+                                  'use_docker': False,
+                                  'variant_group': vgroup['variants']
+                              })
+                          else:
+                              # Docker builds use architecture-specific runners
+                              if 'runners' in platform_config:
+                                  # New format with per-arch runners
+                                  runner = platform_config['runners'][arch]
+                              else:
+                                  # Legacy format with single runner
+                                  runner = platform_config['runner']
+                              matrix.append({
+                                  'version': version['version'],
+                                  'platform': platform_name,
+                                  'arch': arch,
+                                  'runner': runner,
+                                  'container': platform_config['container'],
+                                  'build_type': 'docker',
+                                  'name': f'{platform_name}-{arch}-{vgroup[\"name\"]}',
+                                  'use_docker': True,
+                                  'variant_group': vgroup['variants']
+                              })
+
+          # Output matrix
+          matrix_json = json.dumps({'include': matrix})
+          versions_json = json.dumps([v['version'] for v in versions])
+
+          print(f'matrix={matrix_json}')
+          print(f'versions={versions_json}')
+
+          # Set outputs
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'matrix={matrix_json}\\n')
+              f.write(f'versions={versions_json}\\n')
+          "
+
+  build-ruby:
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.prepare.outputs.matrix).include }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Early cache check for Docker builds (runs on host before container)
+      - name: Check if cache exists (Docker)
+        id: docker-cache-check
+        if: matrix.use_docker == true
+        run: |
+          # Install boringcache CLI on host for cache check
+          curl -sSL https://install.boringcache.com/install.sh | bash
+          export PATH="$HOME/.local/bin:$PATH"
+
+          WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
+          VARIANTS="${{ matrix.variant_group }}"
+
+          # Build comma-separated list of cache tags (CLI adds platform automatically)
+          TAGS=""
+          IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
+          for variant in "${VARIANT_ARRAY[@]}"; do
+            variant=$(echo "$variant" | xargs)
+            if [[ "$variant" == "standard" ]]; then
+              cache_tag="ruby-${{ matrix.version }}"
+            else
+              cache_tag="ruby-${{ matrix.version }}-${variant}"
+            fi
+            if [[ -n "$TAGS" ]]; then
+              TAGS="${TAGS},${cache_tag}"
+            else
+              TAGS="$cache_tag"
+            fi
+          done
+
+          # Use boringcache check command (CLI adds platform suffix automatically)
+          if boringcache check "$WORKSPACE" "$TAGS" --fail-on-miss 2>/dev/null; then
+            echo "⏭ All variants already cached, skipping build"
+            echo "skip_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Docker builds for Debian/Alpine
+      - name: Build Ruby in Docker container
+        if: matrix.use_docker == true && steps.docker-cache-check.outputs.skip_build != 'true'
+        run: |
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            -e BORINGCACHE_API_TOKEN="${BORINGCACHE_API_TOKEN}" \
+            -e BORINGCACHE_DEFAULT_WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE}" \
+            ${{ matrix.container }} \
+            /bin/sh -c '
+              set -e
+              
+              # Install build dependencies based on container type
+              if [ -f /etc/alpine-release ]; then
+                # Temporarily disable exit-on-error for Alpine due to repository warnings
+                set +e
+                # Alpine packages - core Ruby dependencies with retry logic
+                # Note: apk update may show warnings but still work with available repositories
+                for i in 1 2 3; do
+                  echo "Attempt $i: Updating Alpine package index..."
+                  # Continue even if update shows warnings (exit code 2) as long as some repos are available
+                  apk update || echo "apk update had warnings/errors but continuing..."
+                  if [ $i -eq 3 ]; then
+                    echo "Package index update completed (some repositories may be unavailable)"
+                    break
+                  fi
+                  sleep 2
+                done
+                
+                # Install packages with retry logic, continuing on partial failures
+                for i in 1 2 3; do
+                  echo "Attempt $i: Installing Alpine packages..."
+                  if apk add --no-cache --update-cache build-base curl bash python3 py3-yaml \
+                    openssl-dev readline-dev zlib-dev libffi-dev yaml-dev \
+                    gdbm-dev ncurses-dev gmp-dev pkgconfig autoconf bison \
+                    linux-headers make jemalloc-dev valgrind-dev git; then
+                    break
+                  else
+                    echo "Package installation failed on attempt $i"
+                    if [ $i -eq 3 ]; then
+                      echo "Trying essential packages only..."
+                      # Try with minimal essential packages if full install fails
+                      apk add --no-cache build-base curl bash python3 openssl-dev \
+                        readline-dev zlib-dev autoconf bison git make || true
+                      break
+                    fi
+                    sleep 5
+                  fi
+                done
+                
+                # Install modern Rust via rustup for YJIT support with retry logic
+                for i in 1 2 3; do
+                  echo "Attempt $i: Installing Rust via rustup..."
+                  if curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable; then
+                    . "$HOME/.cargo/env"
+                    export PATH="$HOME/.cargo/bin:$PATH"
+                    echo "Rust installation succeeded on attempt $i"
+                    break
+                  else
+                    echo "Rust installation failed on attempt $i"
+                    if [ $i -eq 3 ]; then
+                      echo "All Rust installation attempts failed"
+                      exit 1
+                    fi
+                    sleep 10
+                  fi
+                done
+                # Re-enable exit-on-error after Alpine section
+                set -e
+              elif [ -f /etc/arch-release ]; then
+                # Arch Linux packages
+                pacman -Syu --noconfirm
+                pacman -S --noconfirm base-devel curl python python-yaml \
+                  openssl readline zlib libffi libyaml gdbm ncurses gmp \
+                  pkgconf autoconf bison jemalloc git make valgrind
+                
+                # Install Rust via rustup for YJIT support with retry logic
+                for i in 1 2 3; do
+                  echo "Attempt $i: Installing Rust via rustup..."
+                  if curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable; then
+                    . "$HOME/.cargo/env"
+                    export PATH="$HOME/.cargo/bin:$PATH"
+                    echo "Rust installation succeeded on attempt $i"
+                    break
+                  else
+                    echo "Rust installation failed on attempt $i"
+                    if [ $i -eq 3 ]; then
+                      echo "All Rust installation attempts failed"
+                      exit 1
+                    fi
+                    sleep 10
+                  fi
+                done
+              elif [ -f /etc/debian_version ]; then
+                # Debian packages with retry logic for network issues
+                export DEBIAN_FRONTEND=noninteractive
+                
+                # Retry apt-get update up to 3 times
+                for i in 1 2 3; do
+                  echo "Attempt $i: Updating package lists..."
+                  if apt-get update; then
+                    break
+                  else
+                    echo "apt-get update failed on attempt $i"
+                    if [ $i -eq 3 ]; then
+                      echo "All update attempts failed"
+                      exit 1
+                    fi
+                    sleep 5
+                  fi
+                done
+                
+                # Install core build dependencies with retry and fix-missing
+                for i in 1 2 3; do
+                  echo "Attempt $i: Installing packages..."
+                  if apt-get install -y --fix-missing build-essential curl python3 python3-yaml \
+                    libssl-dev libreadline-dev zlib1g-dev libffi-dev libyaml-dev \
+                    libgdbm-dev libncurses5-dev libgmp-dev pkg-config autoconf \
+                    bison libjemalloc-dev git make valgrind systemtap-sdt-dev; then
+                    break
+                  else
+                    echo "Package installation failed on attempt $i"
+                    if [ $i -eq 3 ]; then
+                      echo "All installation attempts failed"
+                      exit 1
+                    fi
+                    sleep 5
+                    apt-get update || true
+                  fi
+                done
+                
+                # Install modern Rust via rustup for YJIT support with retry logic
+                for i in 1 2 3; do
+                  echo "Attempt $i: Installing Rust via rustup..."
+                  if curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable; then
+                    . "$HOME/.cargo/env"
+                    export PATH="$HOME/.cargo/bin:$PATH"
+                    echo "Rust installation succeeded on attempt $i"
+                    break
+                  else
+                    echo "Rust installation failed on attempt $i"
+                    if [ $i -eq 3 ]; then
+                      echo "All Rust installation attempts failed"
+                      exit 1
+                    fi
+                    sleep 10
+                  fi
+                done
+              fi
+              
+              # Source Rust environment if it was just installed
+              if [ -f "$HOME/.cargo/env" ]; then
+                . "$HOME/.cargo/env"
+                export PATH="$HOME/.cargo/bin:$PATH"
+              fi
+              
+              # Install BoringCache CLI using the standard install script
+              if ! command -v boringcache &> /dev/null; then
+                echo "Installing BoringCache CLI..."
+                if ! curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash; then
+                  echo "BoringCache CLI installation failed, retrying..."
+                  sleep 2
+                  curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
+                fi
+                # In Docker containers, PATH needs to be updated for the current session
+                export PATH="$HOME/.local/bin:$PATH"
+                # Verify installation
+                if command -v boringcache &> /dev/null; then
+                  echo "✓ BoringCache CLI installed successfully"
+                  boringcache --version
+                else
+                  echo "✗ BoringCache CLI installation failed"
+                  exit 1
+                fi
+              fi
+              
+              # Native compilation - using native ARM64 runners
+              echo "Using native ${{ matrix.arch }} runner for ${{ matrix.platform }}"
+              
+              # Build Ruby using our script with variant group
+              make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }} VARIANTS="${{ matrix.variant_group }}"
+            '
+        env:
+          BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+
+      # Native builds for Ubuntu/macOS
+      - name: Install BoringCache CLI (Unix)
+        if: matrix.use_docker != true && matrix.platform != 'windows'
+        run: |
+          if ! command -v boringcache &> /dev/null; then
+            # Debug: Check GLIBC version on runner
+            echo "=== System Info ==="
+            echo "Runner: ${{ matrix.runner }}"
+            echo "Platform: ${{ matrix.platform }}"
+            echo "Arch: ${{ matrix.arch }}"
+            ldd --version 2>/dev/null | head -1 || true
+            
+            # Use standard install script which automatically gets the latest version
+            # Add retry logic for network issues
+            for attempt in 1 2 3; do
+              echo "Attempt $attempt to install BoringCache CLI..."
+              if curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash; then
+                echo "BoringCache CLI installation succeeded on attempt $attempt"
+                break
+              else
+                echo "BoringCache CLI installation failed on attempt $attempt"
+                if [ $attempt -eq 3 ]; then
+                  echo "All attempts failed, trying fallback with generic linux binary..."
+                  export BORINGCACHE_PLATFORM=linux
+                  curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
+                fi
+                sleep 2
+              fi
+            done
+            echo "$HOME/.local/bin" >> $GITHUB_PATH
+            
+            # Debug: Check what was downloaded
+            echo "=== BoringCache CLI Info ==="
+            BORINGCACHE_PATH=$(which boringcache || echo "")
+            if [ -n "$BORINGCACHE_PATH" ]; then
+              echo "BoringCache found at: $BORINGCACHE_PATH"
+              ls -la "$BORINGCACHE_PATH" || echo "Binary not accessible"
+              file "$BORINGCACHE_PATH" || echo "Cannot check file type"
+              boringcache --version || echo "Cannot check version"
+              ldd "$BORINGCACHE_PATH" 2>&1 | head -10 || echo "Cannot check dependencies"
+            else
+              echo "boringcache not found in PATH"
+            fi
+          fi
+
+      - name: Check if cache exists (Unix)
+        id: cache-check
+        if: matrix.use_docker != true && matrix.platform != 'windows'
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
+          VARIANTS="${{ matrix.variant_group }}"
+
+          # Build comma-separated list of cache tags (CLI adds platform automatically)
+          TAGS=""
+          IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
+          for variant in "${VARIANT_ARRAY[@]}"; do
+            variant=$(echo "$variant" | xargs)
+            if [[ "$variant" == "standard" ]]; then
+              cache_tag="ruby-${{ matrix.version }}"
+            else
+              cache_tag="ruby-${{ matrix.version }}-${variant}"
+            fi
+            if [[ -n "$TAGS" ]]; then
+              TAGS="${TAGS},${cache_tag}"
+            else
+              TAGS="$cache_tag"
+            fi
+          done
+
+          # Use boringcache check command (CLI adds platform suffix automatically)
+          if boringcache check "$WORKSPACE" "$TAGS" --fail-on-miss; then
+            echo "⏭ All variants already cached, skipping build"
+            echo "skip_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install build dependencies (Ubuntu)
+        if: matrix.use_docker != true && startsWith(matrix.platform, 'ubuntu') && steps.cache-check.outputs.skip_build != 'true'
+        run: |
+          sudo apt-get update
+
+          # Install core build dependencies
+          sudo apt-get install -y \
+            build-essential \
+            libssl-dev \
+            libreadline-dev \
+            zlib1g-dev \
+            libffi-dev \
+            libyaml-dev \
+            libgdbm-dev \
+            libncurses5-dev \
+            libgmp-dev \
+            pkg-config \
+            autoconf \
+            bison \
+            rustc \
+            libjemalloc-dev \
+            git \
+            curl \
+            python3 \
+            python3-yaml \
+            valgrind \
+            systemtap-sdt-dev \
+            libdb-dev \
+            tk-dev \
+            uuid-dev \
+            libsqlite3-dev \
+            jq \
+            libicu-dev \
+            libxml2-dev \
+            libxslt1-dev \
+            libyajl-dev \
+            libsodium-dev \
+            libpq-dev \
+            libmagickwand-dev \
+            imagemagick \
+            libvips-dev \
+            libcurl4-openssl-dev
+
+      - name: Install build dependencies (macOS)
+        if: matrix.use_docker != true && startsWith(matrix.platform, 'macos') && steps.cache-check.outputs.skip_build != 'true'
+        run: |
+          # GitHub-hosted macOS runners have Homebrew pre-installed
+          # Core Ruby dependencies only
+          brew install openssl@3 readline libyaml gdbm libffi autoconf bison jemalloc rust
+
+      - name: Setup MSYS2 (Windows)
+        if: matrix.use_docker != true && matrix.platform == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            base-devel
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-readline
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-libffi
+            mingw-w64-x86_64-libyaml
+            mingw-w64-x86_64-gdbm
+            mingw-w64-x86_64-rust
+            mingw-w64-x86_64-oniguruma
+            mingw-w64-x86_64-pkg-config
+            autoconf
+            bison
+            python3
+            mingw-w64-x86_64-python-yaml
+            mingw-w64-x86_64-jq
+            mingw-w64-x86_64-icu
+            mingw-w64-x86_64-libxml2
+            mingw-w64-x86_64-libxslt
+            mingw-w64-x86_64-curl
+            mingw-w64-x86_64-imagemagick
+            mingw-w64-x86_64-sqlite3
+            mingw-w64-x86_64-postgresql
+            mingw-w64-x86_64-gmp
+
+      - name: Install BoringCache CLI (Windows)
+        if: matrix.use_docker != true && matrix.platform == 'windows'
+        shell: msys2 {0}
+        run: |
+          if ! command -v boringcache &> /dev/null; then
+            echo "[INFO] Installing BoringCache CLI for Windows..."
+
+            # Create install directory
+            mkdir -p "$HOME/.local/bin"
+
+            # Get latest version from GitHub API
+            echo "[INFO] Fetching latest release version..."
+            VERSION=$(curl --connect-timeout 30 --max-time 60 -sL "https://api.github.com/repos/boringcache/cli/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "v0.1.1")
+            echo "[INFO] Latest version: $VERSION"
+
+            BINARY_URL="https://github.com/boringcache/cli/releases/download/${VERSION}/boringcache-windows-2022-amd64.exe"
+            DEST="$HOME/.local/bin/boringcache.exe"
+
+            # Download with retry logic and proper timeouts
+            for attempt in 1 2 3; do
+              echo "[INFO] Attempt $attempt: Downloading from $BINARY_URL..."
+              if curl --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 -fSL -o "$DEST" "$BINARY_URL"; then
+                echo "[INFO] Download succeeded on attempt $attempt"
+                break
+              else
+                echo "[WARNING] Download failed on attempt $attempt (exit code: $?)"
+                rm -f "$DEST" 2>/dev/null || true
+                if [ $attempt -eq 3 ]; then
+                  echo "[ERROR] All download attempts failed"
+                  exit 1
+                fi
+                sleep 10
+              fi
+            done
+
+            # Make executable and verify
+            chmod +x "$DEST"
+            echo "$HOME/.local/bin" >> $GITHUB_PATH
+            export PATH="$HOME/.local/bin:$PATH"
+
+            if [ -f "$DEST" ] && "$DEST" --version; then
+              echo "[INFO] BoringCache CLI installed successfully"
+            else
+              echo "[ERROR] BoringCache CLI installation verification failed"
+              exit 1
+            fi
+          fi
+
+      - name: Build and Upload Ruby (Unix Native)
+        if: matrix.use_docker != true && matrix.platform != 'windows' && steps.cache-check.outputs.skip_build != 'true'
+        run: |
+          make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }} VARIANTS="${{ matrix.variant_group }}"
+
+      - name: Build and Upload Ruby (Windows)
+        if: matrix.use_docker != true && matrix.platform == 'windows'
+        shell: msys2 {0}
+        run: |
+          make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }} VARIANTS="${{ matrix.variant_group }}"
+
+  cleanup:
+    needs: [build-ruby]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Clean up old cache entries
+        run: |
+          # Install BoringCache CLI
+          curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+          # List all entries and clean up old ones (keep last 10 versions)
+          echo "Cleaning up old Ruby cache entries..."
+          WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
+          boringcache ls "$WORKSPACE" --limit 100 | \
+            grep "^ruby-" | \
+            tail -n +11 | \
+            while read entry; do
+              echo "Deleting old entry: $entry"
+              boringcache delete "$WORKSPACE" "$entry" || true
+            done
