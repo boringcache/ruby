@@ -1,0 +1,117 @@
+name: Check Ruby Versions
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Weekly on Mondays
+  workflow_dispatch:
+
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for new Ruby releases
+        run: |
+          pip install pyyaml requests
+
+          python3 << 'EOF'
+          import yaml, requests, re
+          from datetime import date
+
+          # Fetch ruby-build definitions
+          resp = requests.get("https://api.github.com/repos/rbenv/ruby-build/contents/share/ruby-build")
+          definitions = [f["name"] for f in resp.json() if re.match(r"^\d+\.\d+\.\d+$", f["name"])]
+
+          with open("versions.yml") as f:
+              config = yaml.safe_load(f)
+
+          current = {v["version"] for v in config["versions"]}
+
+          # Check each tracked minor series for newer patches
+          tracked_series = set()
+          for v in config["versions"]:
+              parts = v["version"].split(".")
+              tracked_series.add(f"{parts[0]}.{parts[1]}")
+
+          updates = []
+          for series in tracked_series:
+              available = sorted(
+                  [d for d in definitions if d.startswith(series + ".")],
+                  key=lambda x: [int(p) for p in x.split(".")],
+                  reverse=True
+              )
+              if available and available[0] not in current:
+                  updates.append(available[0])
+
+          if updates:
+              print(f"New versions available: {', '.join(updates)}")
+              with open("new_versions.txt", "w") as f:
+                  f.write("\n".join(updates))
+          else:
+              print("All versions up to date")
+          EOF
+
+      - name: Update versions.yml
+        if: hashFiles('new_versions.txt') != ''
+        run: |
+          python3 << 'EOF'
+          import yaml
+          from datetime import date
+
+          with open("versions.yml") as f:
+              config = yaml.safe_load(f)
+
+          with open("new_versions.txt") as f:
+              new_versions = f.read().strip().split("\n")
+
+          for new_ver in new_versions:
+              parts = new_ver.split(".")
+              series = f"{parts[0]}.{parts[1]}"
+
+              # Find existing entries for this series
+              series_entries = [v for v in config["versions"] if v["version"].startswith(series + ".")]
+              if series_entries:
+                  # Use first entry as template
+                  template = series_entries[0].copy()
+                  template["version"] = new_ver
+                  template["priority"] = "high"
+
+                  # Demote existing priorities
+                  for entry in series_entries:
+                      if entry["priority"] == "high":
+                          entry["priority"] = "medium"
+                      elif entry["priority"] == "medium":
+                          entry["priority"] = "low"
+
+                  # Remove oldest if more than 3
+                  if len(series_entries) >= 3:
+                      oldest = series_entries[-1]
+                      config["versions"].remove(oldest)
+
+                  # Insert new version at the top of its series
+                  idx = config["versions"].index(series_entries[0])
+                  config["versions"].insert(idx, template)
+
+          # Remove EOL versions
+          today = date.today()
+          config["versions"] = [
+              v for v in config["versions"]
+              if date.fromisoformat(v["eol_date"]) > today
+          ]
+
+          with open("versions.yml", "w") as f:
+              yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+          EOF
+
+      - name: Create PR
+        if: hashFiles('new_versions.txt') != ''
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Update Ruby versions"
+          title: "chore: bump Ruby patch versions"
+          body: |
+            New Ruby versions detected. This PR updates `versions.yml` with the latest patches.
+
+            The build workflow will automatically trigger on merge.
+          branch: auto/ruby-version-bump
+          delete-branch: true

@@ -1,0 +1,53 @@
+# Build artifacts
+/tmp/
+*.tar.gz
+*.tar.zst
+*.tar.lz4
+
+# Ruby build artifacts
+ruby-*/
+*.gem
+*.rbc
+.bundle/
+.config/
+coverage/
+InstalledFiles
+lib/bundler/man/
+pkg/
+rdoc/
+spec/reports/
+test/tmp/
+test/version_tmp/
+tmp/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Cache and temporary files
+.cache/
+.tmp/
+
+# Local configuration
+.env
+.env.local
+config/local.yml
+
+# Test artifacts
+coverage/
+.coverage

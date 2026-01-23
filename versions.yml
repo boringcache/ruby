@@ -1,0 +1,176 @@
+# Ruby versions to build and cache (only officially supported versions)
+# Policy: Current major + 3 minor versions, last 3 patch versions each
+# Reference: https://endoflife.date/ruby
+versions:
+  # Ruby 4.0.x series (Stable - Normal Maintenance until 2029-03-31)
+  - version: "4.0.1"
+    status: "stable"
+    priority: "high"
+    maintenance: "normal"
+    eol_date: "2029-03-31"
+  - version: "4.0.0"
+    status: "stable"
+    priority: "medium"
+    maintenance: "normal"
+    eol_date: "2029-03-31"
+
+  # Ruby 3.4.x series (Normal Maintenance until 2028-03-31)
+  - version: "3.4.8"
+    status: "stable"
+    priority: "high"
+    maintenance: "normal"
+    eol_date: "2028-03-31"
+  - version: "3.4.7"
+    status: "stable"
+    priority: "medium"
+    maintenance: "normal"
+    eol_date: "2028-03-31"
+  - version: "3.4.6"
+    status: "stable"
+    priority: "low"
+    maintenance: "normal"
+    eol_date: "2028-03-31"
+
+  # Ruby 3.3.x series (Normal Maintenance until 2027-03-31)
+  - version: "3.3.10"
+    status: "stable"
+    priority: "high"
+    maintenance: "normal"
+    eol_date: "2027-03-31"
+  - version: "3.3.9"
+    status: "stable"
+    priority: "medium"
+    maintenance: "normal"
+    eol_date: "2027-03-31"
+  - version: "3.3.8"
+    status: "stable"
+    priority: "low"
+    maintenance: "normal"
+    eol_date: "2027-03-31"
+
+  # Ruby 3.2.x series (Security Maintenance until 2026-03-31)
+  - version: "3.2.10"
+    status: "stable"
+    priority: "medium"
+    maintenance: "security"
+    eol_date: "2026-03-31"
+  - version: "3.2.9"
+    status: "stable"
+    priority: "low"
+    maintenance: "security"
+    eol_date: "2026-03-31"
+  - version: "3.2.8"
+    status: "stable"
+    priority: "low"
+    maintenance: "security"
+    eol_date: "2026-03-31"
+
+# Platform configurations (matching CLI platforms exactly)
+# Only includes non-EOL operating systems
+platforms:
+  # Ubuntu LTS releases (native GitHub Actions runners)
+  ubuntu-22.04:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "ubuntu-22.04"
+      arm64: "ubuntu-22.04-arm"
+    build_type: "native"
+    eol_date: "2027-04-01"
+
+  ubuntu-24.04:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "ubuntu-24.04"
+      arm64: "ubuntu-24.04-arm"
+    build_type: "native"
+    eol_date: "2029-04-01"
+
+  # Ubuntu 25.04 (Docker build - no native GitHub runner yet)
+  ubuntu-25.04:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "ubuntu-latest"
+      arm64: "ubuntu-24.04-arm"
+    container: "ubuntu:25.04"
+    build_type: "docker"
+    eol_date: "2026-01-01"
+
+  # Debian releases (Docker builds)
+  debian-bookworm:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "ubuntu-latest"
+      arm64: "ubuntu-24.04-arm"
+    container: "debian:bookworm-slim"
+    build_type: "docker"
+    eol_date: "2028-06-01"
+
+  # Alpine Linux (rolling release)
+  alpine:
+    architectures: ["amd64"]
+    runners:
+      amd64: "ubuntu-latest"
+    container: "alpine:latest"
+    build_type: "docker"
+
+  # Arch Linux (rolling release)
+  arch:
+    architectures: ["amd64"]
+    runners:
+      amd64: "ubuntu-latest"
+    container: "archlinux:latest"
+    build_type: "docker"
+
+  # macOS (native GitHub Actions runners)
+  macos:
+    architectures: ["arm64"]
+    runners:
+      arm64: "macos-15"
+    build_type: "native"
+
+  # Windows (native GitHub Actions runners)
+  windows:
+    architectures: ["amd64", "arm64"]
+    runners:
+      amd64: "windows-2022"
+      arm64: "windows-11-arm"
+    build_type: "native"
+    build_method: "msys2"
+
+# Build configuration
+build:
+  configure_options:
+    common:
+      - "--enable-shared"
+      - "--disable-install-doc"
+      - "--with-jemalloc"
+      - "--enable-yjit"
+    linux:
+      - "--with-openssl-dir=/usr"
+    macos:
+      - "--with-openssl-dir=/opt/homebrew"
+      - "--with-readline-dir=/opt/homebrew"
+    windows:
+      - "--with-openssl-dir=/mingw64"
+  
+  optimizations:
+    - name: "jemalloc"
+      platforms: ["debian", "ubuntu", "macos"]
+    - name: "yjit"
+      platforms: ["debian", "ubuntu", "macos"]
+      min_version: "3.1.0"
+
+# Cache configuration
+cache:
+  workspace: "ruby/ruby"
+  retention_days: 90
+  key_pattern: "ruby-{version}"
+  
+  metadata:
+    include:
+      - version
+      - platform
+      - architecture
+      - build_date
+      - configure_options
+      - installed_gems

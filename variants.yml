@@ -1,0 +1,38 @@
+# Ruby variants configuration
+variants:
+  standard:
+    description: "Standard Ruby with all default features"
+    configure_options:
+      - "--without-jemalloc"
+      - "--disable-yjit"
+    platforms: ["linux", "macos", "windows"]
+
+  yjit:
+    description: "Ruby with YJIT JIT compiler"
+    configure_options:
+      - "--without-jemalloc"
+      - "--enable-yjit"
+    requirements:
+      - "Rust 1.58+"
+    min_ruby_version: "3.1.0"
+    platforms: ["linux", "macos"]
+
+  jemalloc:
+    description: "Ruby with jemalloc memory allocator"
+    configure_options:
+      - "--with-jemalloc"
+      - "--disable-yjit"
+    requirements:
+      - "jemalloc-dev"
+    platforms: ["linux", "macos"]
+
+  jemalloc-yjit:
+    description: "Ruby with jemalloc and YJIT"
+    configure_options:
+      - "--with-jemalloc"
+      - "--enable-yjit"
+    requirements:
+      - "jemalloc-dev"
+      - "Rust 1.58+"
+    min_ruby_version: "3.1.0"
+    platforms: ["linux", "macos"]
