@@ -414,6 +414,7 @@ echo "Build results: ${#BUILT_VARIANTS[@]} succeeded, ${#FAILED_VARIANTS[@]} fai
 if (( ${#BUILT_VARIANTS[@]} )); then
   for variant in "${BUILT_VARIANTS[@]}"; do
     RUBY_BASE_DIR="/tmp/ruby-${RUBY_VERSION}-${variant}-${ARCH}"
+    RUBY_PREFIX="$RUBY_BASE_DIR/ruby"
 
     if command -v boringcache >/dev/null 2>&1; then
         # Build base cache tag (CLI adds platform automatically)
