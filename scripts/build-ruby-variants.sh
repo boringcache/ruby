@@ -424,7 +424,7 @@ if (( ${#BUILT_VARIANTS[@]} )); then
         fi
 
         echo "Uploading $variant variant to BoringCache as $cache_tag..."
-        if boringcache save "$BORINGCACHE_WORKSPACE" "$cache_tag:$RUBY_BASE_DIR"; then
+        if boringcache save "$BORINGCACHE_WORKSPACE" "$cache_tag:$RUBY_PREFIX"; then
             echo "✓ Cached Ruby $RUBY_VERSION ($variant)"
         else
             echo "✗ Failed to cache Ruby $RUBY_VERSION ($variant)"

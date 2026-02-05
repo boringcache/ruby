@@ -2,27 +2,32 @@
 
 Prebuilt Ruby distributions with multiple variants for fast CI/CD setup. Built with `ruby-build` and cached using BoringCache.
 
+**Seconds** to install Ruby instead of 5-15 minutes compiling from source. Archives are ~12-17 MB compressed.
+
 ## Quick Start
 
 ```bash
 # Install BoringCache CLI
 curl -sSL https://install.boringcache.com/install.sh | sh
 
-# Restore Ruby
-boringcache restore ruby/ruby ruby-3.4.8-macos-15-arm64 ./ruby
+# Restore Ruby (tag:path format)
+boringcache restore ruby/ruby ruby-3.4.8-yjit-macos-15-arm64:/tmp/bc-ruby
 
 # Add to PATH
-export PATH="$PWD/ruby/ruby/bin:$PATH"
+export PATH="/tmp/bc-ruby/bin:$PATH"
 ruby --version
 ```
 
 ### Usage with mise
 
 ```bash
-# Restore into mise's install directory
 VERSION=3.4.8
-boringcache restore ruby/ruby ruby-${VERSION}-yjit-macos-15-arm64 \
-  ~/.local/share/mise/installs/ruby/${VERSION}
+INSTALL_DIR=~/.local/share/mise/installs/ruby/${VERSION}
+mkdir -p "${INSTALL_DIR}"
+
+# Restore and move into mise's install directory
+boringcache restore ruby/ruby ruby-${VERSION}-yjit-macos-15-arm64:/tmp/bc-ruby
+mv /tmp/bc-ruby/* "${INSTALL_DIR}/" && rm -rf /tmp/bc-ruby
 
 # Tell mise it's installed
 mise use ruby@${VERSION}
@@ -32,18 +37,32 @@ ruby --version
 ### Usage with rbenv
 
 ```bash
-# Restore into rbenv's versions directory
 VERSION=3.4.8
-boringcache restore ruby/ruby ruby-${VERSION}-yjit-ubuntu-22-04-amd64 \
-  ~/.rbenv/versions/${VERSION}
+INSTALL_DIR=~/.rbenv/versions/${VERSION}
+mkdir -p "${INSTALL_DIR}"
+
+# Restore and move into rbenv's versions directory
+boringcache restore ruby/ruby ruby-${VERSION}-yjit-ubuntu-22-04-amd64:/tmp/bc-ruby
+mv /tmp/bc-ruby/* "${INSTALL_DIR}/" && rm -rf /tmp/bc-ruby
 
 # Rebuild shims and set version
 rbenv rehash
 rbenv shell ${VERSION}
 ruby --version
-gem env home
-# => ~/.rbenv/versions/3.4.8/lib/ruby/gems/...
 ```
+
+## Variants
+
+All versions are built in 4 variants (Windows: standard only):
+
+| Variant | Tag example | Use case |
+|---------|-------------|----------|
+| **standard** | `ruby-3.4.8-ubuntu-22-04-amd64` | Default, maximum compatibility |
+| **yjit** | `ruby-3.4.8-yjit-macos-15-arm64` | Best runtime performance |
+| **jemalloc** | `ruby-3.4.8-jemalloc-debian-bookworm-arm64` | Reduced memory fragmentation |
+| **jemalloc-yjit** | `ruby-3.4.8-jemalloc-yjit-ubuntu-24-arm64` | Best performance + memory |
+
+Native extensions (nokogiri, nio4r, etc.) compile normally against all variants.
 
 ## Supported Versions
 
@@ -56,42 +75,24 @@ gem env home
 
 ## Supported Platforms
 
-| Platform | Architectures | Variants | EOL |
-|----------|---------------|----------|-----|
-| Ubuntu 22.04 | amd64, arm64 | all | Apr 2027 |
-| Ubuntu 24.04 | amd64, arm64 | all | Apr 2029 |
-| Ubuntu 25.04 | amd64, arm64 | all | Jan 2026 |
-| Debian Bookworm | amd64, arm64 | all | Jun 2028 |
-| Alpine Linux | amd64 | all | Rolling |
-| Arch Linux | amd64 | all | Rolling |
-| macOS 15 | arm64 | all | - |
-| Windows | amd64, arm64 | standard only | - |
-
-## Variants
-
-| Variant | Description | Configure Options |
-|---------|-------------|-------------------|
-| **standard** | Default Ruby | `--disable-yjit --without-jemalloc` |
-| **yjit** | With YJIT JIT compiler | `--enable-yjit --without-jemalloc` |
-| **jemalloc** | With jemalloc allocator | `--disable-yjit --with-jemalloc` |
-| **jemalloc-yjit** | Both YJIT and jemalloc | `--enable-yjit --with-jemalloc` |
+| Platform | Architectures |
+|----------|---------------|
+| Ubuntu 22.04 | amd64, arm64 |
+| Ubuntu 24.04 | amd64, arm64 |
+| Ubuntu 25.04 | amd64, arm64 |
+| Debian Bookworm | amd64, arm64 |
+| Alpine Linux | amd64 |
+| Arch Linux | amd64 |
+| macOS 15 | arm64 |
+| Windows | amd64, arm64 |
 
 ## Cache Tag Format
 
 ```
-# Standard variant
-ruby-{VERSION}-{PLATFORM}-{ARCH}
-
-# Other variants
-ruby-{VERSION}-{VARIANT}-{PLATFORM}-{ARCH}
+ruby-{VERSION}[-{VARIANT}]-{PLATFORM}-{ARCH}
 ```
 
-Examples:
-- `ruby-3.4.8-ubuntu-22-04-amd64`
-- `ruby-3.4.8-yjit-macos-15-arm64`
-- `ruby-3.4.8-jemalloc-debian-bookworm-arm64`
-
-## GitHub Actions Example
+## GitHub Actions
 
 ```yaml
 name: CI
@@ -108,8 +109,8 @@ jobs:
       - name: Setup Ruby
         run: |
           curl -sSL https://install.boringcache.com/install.sh | sh
-          boringcache restore ruby/ruby ruby-3.4.8-yjit-ubuntu-22-04-amd64 ./ruby
-          echo "$PWD/ruby/ruby/bin" >> $GITHUB_PATH
+          boringcache restore ruby/ruby ruby-3.4.8-yjit-ubuntu-22-04-amd64:./ruby
+          echo "$PWD/ruby/bin" >> $GITHUB_PATH
 
       - name: Test
         run: |
@@ -139,10 +140,10 @@ make ci-build RUBY_VERSION=3.4.8 PLATFORM=ubuntu-22.04 ARCH=amd64
 
 ```bash
 # Shared library errors on Linux
-export LD_LIBRARY_PATH="$PWD/ruby/ruby/lib:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$PWD/ruby/lib:$LD_LIBRARY_PATH"
 
 # Shared library errors on macOS
-export DYLD_LIBRARY_PATH="$PWD/ruby/ruby/lib:$DYLD_LIBRARY_PATH"
+export DYLD_LIBRARY_PATH="$PWD/ruby/lib:$DYLD_LIBRARY_PATH"
 ```
 
 ## License
