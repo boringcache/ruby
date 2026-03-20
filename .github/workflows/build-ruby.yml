@@ -100,10 +100,13 @@ jobs:
                   groups = windows_variant_groups if platform_name == 'windows' else variant_groups
 
                   for arch in platform_config['architectures']:
-                      # Windows ARM64 (CLANGARM64) only supported for Ruby >= 3.4
+                      # Windows ARM64 (CLANGARM64) only supported for Ruby >= 3.4,
+                      # and only latest patch per series (older patches lack Clang fixes)
                       if platform_name == 'windows' and arch == 'arm64':
                           major_minor = '.'.join(version['version'].split('.')[:2])
                           if float(major_minor) < 3.4:
+                              continue
+                          if version.get('priority') != 'high':
                               continue
 
                       for vgroup in groups:
