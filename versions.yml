@@ -13,11 +13,6 @@ versions:
     priority: "medium"
     maintenance: "normal"
     eol_date: "2029-03-31"
-  - version: "4.0.0"
-    status: "stable"
-    priority: "low"
-    maintenance: "normal"
-    eol_date: "2029-03-31"
 
   # Ruby 3.4.x series (Normal Maintenance until 2028-03-31)
   - version: "3.4.9"
@@ -60,11 +55,6 @@ versions:
     maintenance: "security"
     eol_date: "2026-03-31"
   - version: "3.2.9"
-    status: "stable"
-    priority: "low"
-    maintenance: "security"
-    eol_date: "2026-03-31"
-  - version: "3.2.8"
     status: "stable"
     priority: "low"
     maintenance: "security"
