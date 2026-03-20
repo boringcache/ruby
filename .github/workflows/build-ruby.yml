@@ -178,32 +178,26 @@ jobs:
         id: docker-cache-check
         if: matrix.use_docker == true
         run: |
-          # Install boringcache CLI on host for cache check
           curl -sSL https://install.boringcache.com/install.sh | bash
           export PATH="$HOME/.local/bin:$PATH"
 
           WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
           VARIANTS="${{ matrix.variant_group }}"
 
-          # Build comma-separated list of cache tags (CLI adds platform automatically)
           TAGS=""
           IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
           for variant in "${VARIANT_ARRAY[@]}"; do
             variant=$(echo "$variant" | xargs)
             if [[ "$variant" == "standard" ]]; then
-              cache_tag="ruby-${{ matrix.version }}"
+              TAGS="${TAGS:+${TAGS},}ruby-${{ matrix.version }}"
             else
-              cache_tag="ruby-${{ matrix.version }}-${variant}"
-            fi
-            if [[ -n "$TAGS" ]]; then
-              TAGS="${TAGS},${cache_tag}"
-            else
-              TAGS="$cache_tag"
+              TAGS="${TAGS:+${TAGS},}ruby-${{ matrix.version }}-${variant}"
             fi
           done
 
-          # Use boringcache check command (CLI adds platform suffix automatically)
-          if boringcache check "$WORKSPACE" "$TAGS" --fail-on-miss 2>/dev/null; then
+          RESULT=$(boringcache check "$WORKSPACE" "$TAGS" --json 2>/dev/null || echo '{"misses":1}')
+          MISSES=$(echo "$RESULT" | jq -r '.misses // 1')
+          if [[ "$MISSES" -eq 0 ]]; then
             echo "⏭ All variants already cached, skipping build"
             echo "skip_build=true" >> $GITHUB_OUTPUT
           else
@@ -449,25 +443,20 @@ jobs:
           WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE:-ruby/ruby}"
           VARIANTS="${{ matrix.variant_group }}"
 
-          # Build comma-separated list of cache tags (CLI adds platform automatically)
           TAGS=""
           IFS=',' read -ra VARIANT_ARRAY <<< "$VARIANTS"
           for variant in "${VARIANT_ARRAY[@]}"; do
             variant=$(echo "$variant" | xargs)
             if [[ "$variant" == "standard" ]]; then
-              cache_tag="ruby-${{ matrix.version }}"
+              TAGS="${TAGS:+${TAGS},}ruby-${{ matrix.version }}"
             else
-              cache_tag="ruby-${{ matrix.version }}-${variant}"
-            fi
-            if [[ -n "$TAGS" ]]; then
-              TAGS="${TAGS},${cache_tag}"
-            else
-              TAGS="$cache_tag"
+              TAGS="${TAGS:+${TAGS},}ruby-${{ matrix.version }}-${variant}"
             fi
           done
 
-          # Use boringcache check command (CLI adds platform suffix automatically)
-          if boringcache check "$WORKSPACE" "$TAGS" --fail-on-miss; then
+          RESULT=$(boringcache check "$WORKSPACE" "$TAGS" --json 2>/dev/null || echo '{"misses":1}')
+          MISSES=$(echo "$RESULT" | jq -r '.misses // 1')
+          if [[ "$MISSES" -eq 0 ]]; then
             echo "⏭ All variants already cached, skipping build"
             echo "skip_build=true" >> $GITHUB_OUTPUT
           else

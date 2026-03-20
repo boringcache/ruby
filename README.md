@@ -11,7 +11,7 @@ Prebuilt Ruby distributions with multiple variants for fast CI/CD setup. Built w
 curl -sSL https://install.boringcache.com/install.sh | sh
 
 # Restore Ruby (tag:path format)
-boringcache restore ruby/ruby ruby-3.4.8-yjit-macos-15-arm64:/tmp/bc-ruby
+boringcache restore ruby/ruby ruby-3.4.9-yjit:/tmp/bc-ruby
 
 # Add to PATH
 export PATH="/tmp/bc-ruby/bin:$PATH"
@@ -21,15 +21,13 @@ ruby --version
 ### Usage with mise
 
 ```bash
-VERSION=3.4.8
+VERSION=3.4.9
 INSTALL_DIR=~/.local/share/mise/installs/ruby/${VERSION}
 mkdir -p "${INSTALL_DIR}"
 
-# Restore and move into mise's install directory
-boringcache restore ruby/ruby ruby-${VERSION}-yjit-macos-15-arm64:/tmp/bc-ruby
+boringcache restore ruby/ruby ruby-${VERSION}-yjit:/tmp/bc-ruby
 mv /tmp/bc-ruby/* "${INSTALL_DIR}/" && rm -rf /tmp/bc-ruby
 
-# Tell mise it's installed
 mise use ruby@${VERSION}
 ruby --version
 ```
@@ -37,15 +35,13 @@ ruby --version
 ### Usage with rbenv
 
 ```bash
-VERSION=3.4.8
+VERSION=3.4.9
 INSTALL_DIR=~/.rbenv/versions/${VERSION}
 mkdir -p "${INSTALL_DIR}"
 
-# Restore and move into rbenv's versions directory
-boringcache restore ruby/ruby ruby-${VERSION}-yjit-ubuntu-22-04-amd64:/tmp/bc-ruby
+boringcache restore ruby/ruby ruby-${VERSION}-yjit:/tmp/bc-ruby
 mv /tmp/bc-ruby/* "${INSTALL_DIR}/" && rm -rf /tmp/bc-ruby
 
-# Rebuild shims and set version
 rbenv rehash
 rbenv shell ${VERSION}
 ruby --version
@@ -57,10 +53,12 @@ All versions are built in 4 variants (Windows: standard only):
 
 | Variant | Tag example | Use case |
 |---------|-------------|----------|
-| **standard** | `ruby-3.4.8-ubuntu-22-04-amd64` | Default, maximum compatibility |
-| **yjit** | `ruby-3.4.8-yjit-macos-15-arm64` | Best runtime performance |
-| **jemalloc** | `ruby-3.4.8-jemalloc-debian-bookworm-arm64` | Reduced memory fragmentation |
-| **jemalloc-yjit** | `ruby-3.4.8-jemalloc-yjit-ubuntu-24-arm64` | Best performance + memory |
+| **standard** | `ruby-3.4.9` | Default, maximum compatibility |
+| **yjit** | `ruby-3.4.9-yjit` | Best runtime performance |
+| **jemalloc** | `ruby-3.4.9-jemalloc` | Reduced memory fragmentation |
+| **jemalloc-yjit** | `ruby-3.4.9-jemalloc-yjit` | Best performance + memory |
+
+The CLI automatically appends the platform suffix based on the current system.
 
 Native extensions (nokogiri, nio4r, etc.) compile normally against all variants.
 
@@ -68,28 +66,34 @@ Native extensions (nokogiri, nio4r, etc.) compile normally against all variants.
 
 | Series | Versions | Status | EOL |
 |--------|----------|--------|-----|
-| **4.0** | 4.0.1, 4.0.0 | Stable | Mar 2029 |
-| **3.4** | 3.4.8, 3.4.7, 3.4.6 | Stable | Mar 2028 |
+| **4.0** | 4.0.2, 4.0.1 | Stable | Mar 2029 |
+| **3.4** | 3.4.9, 3.4.8, 3.4.7 | Stable | Mar 2028 |
 | **3.3** | 3.3.10, 3.3.9, 3.3.8 | Stable | Mar 2027 |
-| **3.2** | 3.2.10, 3.2.9, 3.2.8 | Security | Mar 2026 |
+| **3.2** | 3.2.10, 3.2.9 | Security | Mar 2026 |
 
 ## Supported Platforms
 
-| Platform | Architectures |
-|----------|---------------|
-| Ubuntu 22.04 | amd64, arm64 |
-| Ubuntu 24.04 | amd64, arm64 |
-| Ubuntu 25.04 | amd64, arm64 |
-| Debian Bookworm | amd64, arm64 |
-| Alpine Linux | amd64 |
-| Arch Linux | amd64 |
-| macOS 15 | arm64 |
-| Windows | amd64, arm64 |
+| Platform | Architectures | Build type |
+|----------|---------------|------------|
+| Ubuntu 22.04 | amd64, arm64 | Native |
+| Ubuntu 24.04 | amd64, arm64 | Native |
+| Ubuntu 25.04 | amd64, arm64 | Docker |
+| Debian Bookworm | amd64, arm64 | Docker |
+| Alpine Linux | amd64 | Docker |
+| Arch Linux | amd64 | Docker |
+| macOS 15 | arm64 | Native |
+| Windows | amd64, arm64 | Native (MSYS2) |
 
-## Cache Tag Format
+Windows ARM64 builds use CLANGARM64 and are limited to the latest patch per series (Ruby >= 3.4).
 
-```
-ruby-{VERSION}[-{VARIANT}]-{PLATFORM}-{ARCH}
+## Check Cache
+
+```bash
+# Check if a version exists (JSON output)
+boringcache check ruby/ruby "ruby-3.4.9,ruby-3.4.9-yjit" --json
+
+# Output:
+# {"workspace":"ruby/ruby","total":2,"hits":2,"misses":0,"results":[...]}
 ```
 
 ## GitHub Actions
@@ -109,7 +113,7 @@ jobs:
       - name: Setup Ruby
         run: |
           curl -sSL https://install.boringcache.com/install.sh | sh
-          boringcache restore ruby/ruby ruby-3.4.8-yjit-ubuntu-22-04-amd64:./ruby
+          boringcache restore ruby/ruby ruby-3.4.9-yjit:./ruby
           echo "$PWD/ruby/bin" >> $GITHUB_PATH
 
       - name: Test
@@ -123,10 +127,10 @@ jobs:
 
 ```bash
 # Build specific variant
-make build RUBY_VERSION=3.4.8 PLATFORM=ubuntu-22.04 ARCH=amd64 VARIANTS=yjit
+make build RUBY_VERSION=3.4.9 PLATFORM=ubuntu-22.04 ARCH=amd64 VARIANTS=yjit
 
 # Build and upload
-make ci-build RUBY_VERSION=3.4.8 PLATFORM=ubuntu-22.04 ARCH=amd64
+make ci-build RUBY_VERSION=3.4.9 PLATFORM=ubuntu-22.04 ARCH=amd64
 ```
 
 ## Environment Variables

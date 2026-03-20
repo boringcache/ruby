@@ -328,12 +328,10 @@ else
     fi
 fi
 
-# Function to check if cache already exists (CLI adds platform suffix automatically)
 cache_exists() {
     local variant="$1"
     local cache_tag=""
 
-    # Build base cache tag (CLI adds platform automatically)
     if [[ "$variant" == "standard" ]]; then
         cache_tag="ruby-${RUBY_VERSION}"
     else
@@ -341,8 +339,11 @@ cache_exists() {
     fi
 
     if command -v boringcache >/dev/null 2>&1; then
-        # Use boringcache check command
-        if boringcache check "$BORINGCACHE_WORKSPACE" "$cache_tag" --fail-on-miss 2>/dev/null; then
+        local result
+        result=$(boringcache check "$BORINGCACHE_WORKSPACE" "$cache_tag" --json 2>/dev/null || echo '{"misses":1}')
+        local misses
+        misses=$(echo "$result" | jq -r '.misses // 1' 2>/dev/null || echo "1")
+        if [[ "$misses" -eq 0 ]]; then
             return 0
         fi
     fi
