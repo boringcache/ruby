@@ -100,6 +100,12 @@ jobs:
                   groups = windows_variant_groups if platform_name == 'windows' else variant_groups
 
                   for arch in platform_config['architectures']:
+                      # Windows ARM64 (CLANGARM64) only supported for Ruby >= 3.4
+                      if platform_name == 'windows' and arch == 'arm64':
+                          major_minor = '.'.join(version['version'].split('.')[:2])
+                          if float(major_minor) < 3.4:
+                              continue
+
                       for vgroup in groups:
                           if platform_config['build_type'] == 'native':
                               # Native builds use specific runners per arch
@@ -515,8 +521,8 @@ jobs:
           # Core Ruby dependencies only
           brew install openssl@3 readline libyaml gdbm libffi autoconf bison jemalloc rust
 
-      - name: Setup MSYS2 (Windows)
-        if: matrix.use_docker != true && matrix.platform == 'windows'
+      - name: Setup MSYS2 (Windows AMD64)
+        if: matrix.use_docker != true && matrix.platform == 'windows' && matrix.arch == 'amd64'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -547,6 +553,39 @@ jobs:
             mingw-w64-x86_64-sqlite3
             mingw-w64-x86_64-postgresql
             mingw-w64-x86_64-gmp
+
+      - name: Setup MSYS2 (Windows ARM64)
+        if: matrix.use_docker != true && matrix.platform == 'windows' && matrix.arch == 'arm64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANGARM64
+          update: true
+          install: >-
+            git
+            base-devel
+            mingw-w64-clang-aarch64-clang
+            mingw-w64-clang-aarch64-openssl
+            mingw-w64-clang-aarch64-readline
+            mingw-w64-clang-aarch64-zlib
+            mingw-w64-clang-aarch64-libffi
+            mingw-w64-clang-aarch64-libyaml
+            mingw-w64-clang-aarch64-gdbm
+            mingw-w64-clang-aarch64-rust
+            mingw-w64-clang-aarch64-oniguruma
+            mingw-w64-clang-aarch64-pkg-config
+            autoconf
+            bison
+            python3
+            mingw-w64-clang-aarch64-python-yaml
+            mingw-w64-clang-aarch64-jq
+            mingw-w64-clang-aarch64-icu
+            mingw-w64-clang-aarch64-libxml2
+            mingw-w64-clang-aarch64-libxslt
+            mingw-w64-clang-aarch64-curl
+            mingw-w64-clang-aarch64-imagemagick
+            mingw-w64-clang-aarch64-sqlite3
+            mingw-w64-clang-aarch64-postgresql
+            mingw-w64-clang-aarch64-gmp
 
       - name: Install BoringCache CLI (Windows)
         if: matrix.use_docker != true && matrix.platform == 'windows'

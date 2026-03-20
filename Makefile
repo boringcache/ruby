@@ -1,7 +1,7 @@
 # BoringCache Ruby Build System
 # Provides convenient targets for building and managing Ruby distributions
 
-RUBY_VERSION ?= 3.4.8
+RUBY_VERSION ?= 3.4.9
 PLATFORM ?= $(shell uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
 ARCH ?= $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 VARIANTS ?= standard,yjit,jemalloc,jemalloc-yjit
