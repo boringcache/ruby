@@ -100,15 +100,6 @@ jobs:
                   groups = windows_variant_groups if platform_name == 'windows' else variant_groups
 
                   for arch in platform_config['architectures']:
-                      # Windows ARM64 (CLANGARM64) only supported for Ruby >= 3.4,
-                      # and only latest patch per series (older patches lack Clang fixes)
-                      if platform_name == 'windows' and arch == 'arm64':
-                          major_minor = '.'.join(version['version'].split('.')[:2])
-                          if float(major_minor) < 3.4:
-                              continue
-                          if version.get('priority') != 'high':
-                              continue
-
                       for vgroup in groups:
                           if platform_config['build_type'] == 'native':
                               # Native builds use specific runners per arch
@@ -364,17 +355,19 @@ jobs:
               # Install BoringCache CLI using the standard install script
               if ! command -v boringcache &> /dev/null; then
                 echo "Installing BoringCache CLI..."
-                if ! curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash; then
-                  echo "BoringCache CLI installation failed, retrying..."
-                  sleep 2
-                  curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
-                fi
-                # In Docker containers, PATH needs to be updated for the current session
+                curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash || true
                 export PATH="$HOME/.local/bin:$PATH"
-                # Verify installation
-                if command -v boringcache &> /dev/null; then
+
+                # Verify the binary is valid (not an HTML error page from CDN)
+                if ! boringcache --version 2>/dev/null; then
+                  echo "Binary invalid, retrying with generic linux platform..."
+                  rm -f "$(command -v boringcache 2>/dev/null)" || true
+                  BORINGCACHE_PLATFORM=linux curl -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" https://install.boringcache.com/install.sh | bash
+                  export PATH="$HOME/.local/bin:$PATH"
+                fi
+
+                if boringcache --version 2>/dev/null; then
                   echo "✓ BoringCache CLI installed successfully"
-                  boringcache --version
                 else
                   echo "✗ BoringCache CLI installation failed"
                   exit 1
@@ -513,8 +506,8 @@ jobs:
           # Core Ruby dependencies only
           brew install openssl@3 readline libyaml gdbm libffi autoconf bison jemalloc rust
 
-      - name: Setup MSYS2 (Windows AMD64)
-        if: matrix.use_docker != true && matrix.platform == 'windows' && matrix.arch == 'amd64'
+      - name: Setup MSYS2 (Windows)
+        if: matrix.use_docker != true && matrix.platform == 'windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -545,39 +538,6 @@ jobs:
             mingw-w64-x86_64-sqlite3
             mingw-w64-x86_64-postgresql
             mingw-w64-x86_64-gmp
-
-      - name: Setup MSYS2 (Windows ARM64)
-        if: matrix.use_docker != true && matrix.platform == 'windows' && matrix.arch == 'arm64'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: CLANGARM64
-          update: true
-          install: >-
-            git
-            base-devel
-            mingw-w64-clang-aarch64-clang
-            mingw-w64-clang-aarch64-openssl
-            mingw-w64-clang-aarch64-readline
-            mingw-w64-clang-aarch64-zlib
-            mingw-w64-clang-aarch64-libffi
-            mingw-w64-clang-aarch64-libyaml
-            mingw-w64-clang-aarch64-gdbm
-            mingw-w64-clang-aarch64-rust
-            mingw-w64-clang-aarch64-oniguruma
-            mingw-w64-clang-aarch64-pkg-config
-            autoconf
-            bison
-            python3
-            mingw-w64-clang-aarch64-python-yaml
-            mingw-w64-clang-aarch64-jq
-            mingw-w64-clang-aarch64-icu
-            mingw-w64-clang-aarch64-libxml2
-            mingw-w64-clang-aarch64-libxslt
-            mingw-w64-clang-aarch64-curl
-            mingw-w64-clang-aarch64-imagemagick
-            mingw-w64-clang-aarch64-sqlite3
-            mingw-w64-clang-aarch64-postgresql
-            mingw-w64-clang-aarch64-gmp
 
       - name: Install BoringCache CLI (Windows)
         if: matrix.use_docker != true && matrix.platform == 'windows'

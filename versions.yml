@@ -125,10 +125,9 @@ platforms:
 
   # Windows (native GitHub Actions runners)
   windows:
-    architectures: ["amd64", "arm64"]
+    architectures: ["amd64"]
     runners:
       amd64: "windows-2022"
-      arm64: "windows-11-arm"
     build_type: "native"
     build_method: "msys2"
 

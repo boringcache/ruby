@@ -82,9 +82,7 @@ Native extensions (nokogiri, nio4r, etc.) compile normally against all variants.
 | Alpine Linux | amd64 | Docker |
 | Arch Linux | amd64 | Docker |
 | macOS 15 | arm64 | Native |
-| Windows | amd64, arm64 | Native (MSYS2) |
-
-Windows ARM64 builds use CLANGARM64 and are limited to the latest patch per series (Ruby >= 3.4).
+| Windows | amd64 | Native (MSYS2) |
 
 ## Check Cache
 
