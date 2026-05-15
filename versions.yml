@@ -1,20 +1,25 @@
 # Ruby versions to build and cache (only officially supported versions)
-# Policy: Current major + 3 minor versions, last 3 patch versions each
+# Policy: Supported minor series, last 3 patch versions each
 # Reference: https://endoflife.date/ruby
 versions:
   # Ruby 4.0.x series (Stable - Normal Maintenance until 2029-03-31)
-  - version: "4.0.2"
+  - version: "4.0.4"
     status: "stable"
     priority: "high"
     maintenance: "normal"
     eol_date: "2029-03-31"
-  - version: "4.0.1"
+  - version: "4.0.3"
     status: "stable"
     priority: "medium"
     maintenance: "normal"
     eol_date: "2029-03-31"
+  - version: "4.0.2"
+    status: "stable"
+    priority: "low"
+    maintenance: "normal"
+    eol_date: "2029-03-31"
 
-  # Ruby 3.4.x series (Normal Maintenance until 2028-03-31)
+  # Ruby 3.4.x series (Stable - Normal Maintenance until 2028-03-31)
   - version: "3.4.9"
     status: "stable"
     priority: "high"
@@ -31,34 +36,23 @@ versions:
     maintenance: "normal"
     eol_date: "2028-03-31"
 
-  # Ruby 3.3.x series (Normal Maintenance until 2027-03-31)
-  - version: "3.3.10"
+  # Ruby 3.3.x series (Stable - Normal Maintenance until 2027-03-31)
+  - version: "3.3.11"
     status: "stable"
     priority: "high"
     maintenance: "normal"
     eol_date: "2027-03-31"
-  - version: "3.3.9"
+  - version: "3.3.10"
     status: "stable"
     priority: "medium"
     maintenance: "normal"
     eol_date: "2027-03-31"
-  - version: "3.3.8"
+  - version: "3.3.9"
     status: "stable"
     priority: "low"
     maintenance: "normal"
     eol_date: "2027-03-31"
 
-  # Ruby 3.2.x series (Security Maintenance until 2026-03-31)
-  - version: "3.2.10"
-    status: "stable"
-    priority: "medium"
-    maintenance: "security"
-    eol_date: "2026-03-31"
-  - version: "3.2.9"
-    status: "stable"
-    priority: "low"
-    maintenance: "security"
-    eol_date: "2026-03-31"
 
 # Platform configurations (matching CLI platforms exactly)
 # Only includes non-EOL operating systems

@@ -27,6 +27,9 @@ on:
         default: "ubuntu-22.04,ubuntu-24.04,ubuntu-25.04,debian-bookworm,alpine,arch,macos,windows"
         type: string
 
+permissions:
+  contents: read
+
 env:
   BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
   BORINGCACHE_DEFAULT_WORKSPACE: ${{ secrets.BORINGCACHE_DEFAULT_WORKSPACE || 'ruby/ruby' }}
@@ -462,3 +465,15 @@ jobs:
               echo "Deleting old entry: $entry"
               boringcache delete "$WORKSPACE" "$entry" || true
             done
+
+  build-status:
+    name: Build Status
+    needs: [prepare, build-ruby, cleanup]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Verify required jobs
+        run: |
+          test "${{ needs.prepare.result }}" = "success"
+          test "${{ needs.build-ruby.result }}" = "success"
+          test "${{ needs.cleanup.result }}" = "success"
