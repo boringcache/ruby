@@ -183,10 +183,14 @@ def main() -> int:
         raise ValueError("versions.yml has no Ruby versions to update")
 
     updated_versions, messages = update_versions(versions, fetch_ruby_build_versions())
+    tail_lines = original_lines[end:]
+    while tail_lines and tail_lines[0].strip() == "":
+        tail_lines = tail_lines[1:]
+
     updated_lines = (
         original_lines[:start]
         + format_versions_block(updated_versions)
-        + original_lines[end:]
+        + tail_lines
     )
 
     VERSIONS_FILE.write_text("".join(updated_lines))
