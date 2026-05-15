@@ -1,0 +1,68 @@
+name: Ruby Config Validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Ruby Config Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate configuration files
+        run: |
+          set -euo pipefail
+
+          ruby -e 'require "yaml"; %w[versions.yml variants.yml .github/workflows/build-ruby.yml .github/workflows/check-ruby-versions.yml .github/workflows/validate-ruby.yml].each { |path| YAML.load_file(path); puts "ok #{path}" }'
+
+      - name: Validate scripts
+        run: |
+          set -euo pipefail
+
+          python3 -m py_compile scripts/update-ruby-versions.py
+          bash -n scripts/build-ruby-variants.sh
+          bash -n scripts/configure-platform.sh
+
+      - name: Ensure cache builds never run on pull requests
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path(".github/workflows/build-ruby.yml")
+          in_on_block = False
+          offenders = []
+
+          for number, line in enumerate(workflow.read_text().splitlines(), start=1):
+              if line.startswith("on:"):
+                  in_on_block = True
+                  continue
+
+              if in_on_block and line and not line.startswith((" ", "\t")):
+                  in_on_block = False
+
+              if in_on_block and line.lstrip().startswith("pull_request:"):
+                  offenders.append(number)
+
+          if offenders:
+              lines = ", ".join(str(number) for number in offenders)
+              raise SystemExit(f"{workflow} must not run cache-producing builds on pull_request (line {lines})")
+          PY
+
+          if grep -R "BORINGCACHE_API_TOKEN" .github/workflows/build-ruby.yml scripts; then
+            echo "Use split BORINGCACHE_RESTORE_TOKEN and BORINGCACHE_SAVE_TOKEN secrets instead." >&2
+            exit 1
+          fi
+
+      - name: Check version updater idempotence
+        run: |
+          set -euo pipefail
+
+          python3 scripts/update-ruby-versions.py
+          git diff --exit-code -- versions.yml

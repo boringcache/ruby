@@ -55,7 +55,7 @@ build_variant() {
     configure_variant "$variant"
 
     # Set up Ruby configure options with variant-specific options
-    RUBY_CONFIGURE_OPTS="--enable-shared --enable-load-relative --with-static-linked-ext --enable-frozen-string-literal --enable-pthread --enable-debug-env --enable-rubygems $VARIANT_OPTS"
+    RUBY_CONFIGURE_OPTS="--enable-shared --enable-load-relative --with-static-linked-ext --enable-frozen-string-literal --enable-pthread --enable-debug-env --enable-rubygems --disable-install-doc $VARIANT_OPTS"
 
     # Set platform-specific environment variables for macOS
     local BUILD_CPPFLAGS="${CPPFLAGS:-}"

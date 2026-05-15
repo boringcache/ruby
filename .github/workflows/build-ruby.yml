@@ -7,11 +7,6 @@ on:
       - "versions.yml"
       - ".github/workflows/build-ruby.yml"
       - "scripts/**"
-  pull_request:
-    paths:
-      - "versions.yml"
-      - ".github/workflows/build-ruby.yml"
-      - "scripts/**"
   schedule:
     # Build weekly on Sundays at 02:00 UTC
     - cron: "0 2 * * 0"
@@ -27,12 +22,33 @@ on:
         default: "ubuntu-22.04,ubuntu-24.04,ubuntu-25.04,debian-bookworm,alpine,arch,macos,windows"
         type: string
 
+permissions:
+  contents: read
+
 env:
-  BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
+  BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+  BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
   BORINGCACHE_DEFAULT_WORKSPACE: ${{ secrets.BORINGCACHE_DEFAULT_WORKSPACE || 'ruby/ruby' }}
 
 jobs:
+  token-check:
+    name: BoringCache Token Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require save and restore tokens
+        run: |
+          if [ -z "${BORINGCACHE_RESTORE_TOKEN}" ]; then
+            echo "BORINGCACHE_RESTORE_TOKEN is required for cache lookup/restore." >&2
+            exit 1
+          fi
+
+          if [ -z "${BORINGCACHE_SAVE_TOKEN}" ]; then
+            echo "BORINGCACHE_SAVE_TOKEN is required for cache saves." >&2
+            exit 1
+          fi
+
   prepare:
+    needs: token-check
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.setup.outputs.matrix }}
@@ -181,7 +197,8 @@ jobs:
           docker run --rm \
             -v "$PWD:/workspace" \
             -w /workspace \
-            -e BORINGCACHE_API_TOKEN="${BORINGCACHE_API_TOKEN}" \
+            -e BORINGCACHE_RESTORE_TOKEN="${BORINGCACHE_RESTORE_TOKEN}" \
+            -e BORINGCACHE_SAVE_TOKEN="${BORINGCACHE_SAVE_TOKEN}" \
             -e BORINGCACHE_DEFAULT_WORKSPACE="${BORINGCACHE_DEFAULT_WORKSPACE}" \
             ${{ matrix.container }} \
             /bin/sh -c '
@@ -317,8 +334,6 @@ jobs:
               echo "Using native ${{ matrix.arch }} runner for ${{ matrix.platform }}"
               make ci-build RUBY_VERSION=${{ matrix.version }} PLATFORM=${{ matrix.platform }} ARCH=${{ matrix.arch }} VARIANTS="${{ matrix.variant_group }}"
             '
-        env:
-          BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN }}
 
       - name: Check if cache exists (Unix)
         id: cache-check
@@ -460,5 +475,18 @@ jobs:
             tail -n +11 | \
             while read entry; do
               echo "Deleting old entry: $entry"
-              boringcache delete "$WORKSPACE" "$entry" || true
+              boringcache delete --no-platform --no-git "$WORKSPACE" "$entry" || true
             done
+
+  build-status:
+    name: Build Status
+    needs: [token-check, prepare, build-ruby, cleanup]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Verify required jobs
+        run: |
+          test "${{ needs.token-check.result }}" = "success"
+          test "${{ needs.prepare.result }}" = "success"
+          test "${{ needs.build-ruby.result }}" = "success"
+          test "${{ needs.cleanup.result }}" = "success"
