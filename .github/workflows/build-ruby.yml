@@ -475,7 +475,7 @@ jobs:
             tail -n +11 | \
             while read entry; do
               echo "Deleting old entry: $entry"
-              boringcache delete "$WORKSPACE" "$entry" || true
+              boringcache delete --no-platform --no-git "$WORKSPACE" "$entry" || true
             done
 
   build-status:
