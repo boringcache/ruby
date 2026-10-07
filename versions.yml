@@ -77,7 +77,7 @@ platforms:
   ubuntu-25.04:
     architectures: ["amd64", "arm64"]
     runners:
-      amd64: "ubuntu-latest"
+      amd64: "ubuntu-24.04"
       arm64: "ubuntu-24.04-arm"
     container: "ubuntu:25.04"
     build_type: "docker"
@@ -87,7 +87,7 @@ platforms:
   debian-bookworm:
     architectures: ["amd64", "arm64"]
     runners:
-      amd64: "ubuntu-latest"
+      amd64: "ubuntu-24.04"
       arm64: "ubuntu-24.04-arm"
     container: "debian:bookworm-slim"
     build_type: "docker"
@@ -97,7 +97,7 @@ platforms:
   alpine:
     architectures: ["amd64"]
     runners:
-      amd64: "ubuntu-latest"
+      amd64: "ubuntu-24.04"
     container: "alpine:latest"
     build_type: "docker"
 
@@ -105,7 +105,7 @@ platforms:
   arch:
     architectures: ["amd64"]
     runners:
-      amd64: "ubuntu-latest"
+      amd64: "ubuntu-24.04"
     container: "archlinux:latest"
     build_type: "docker"
 

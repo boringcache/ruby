@@ -33,7 +33,7 @@ env:
 jobs:
   token-check:
     name: BoringCache Token Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require save and restore tokens
         run: |
@@ -49,7 +49,7 @@ jobs:
 
   prepare:
     needs: token-check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.setup.outputs.matrix }}
       versions: ${{ steps.setup.outputs.versions }}
@@ -458,7 +458,7 @@ jobs:
 
   cleanup:
     needs: [build-ruby]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: always()
     steps:
       - name: Setup BoringCache CLI
@@ -481,7 +481,7 @@ jobs:
   build-status:
     name: Build Status
     needs: [token-check, prepare, build-ruby, cleanup]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: always()
     steps:
       - name: Verify required jobs
