@@ -181,10 +181,11 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup BoringCache CLI
-        uses: boringcache/one@v1
+        uses: boringcache/one@e6adf88e3d4847192ed4cd0a8b7e746c5eb3cc30 # v1.43.3
         with:
-          setup: none
-          cli-platform: ${{ (matrix.use_docker == true && format('{0}-{1}', matrix.platform, matrix.arch)) || '' }}
+          cli-version: v1.43.3
+          mode: gha
+          cli-platform: ${{ (matrix.use_docker == true && format('linux-musl-{0}', matrix.arch)) || '' }}
 
       - name: Copy CLI to workspace for Docker
         if: matrix.use_docker == true
@@ -462,9 +463,10 @@ jobs:
     if: always()
     steps:
       - name: Setup BoringCache CLI
-        uses: boringcache/one@v1
+        uses: boringcache/one@e6adf88e3d4847192ed4cd0a8b7e746c5eb3cc30 # v1.43.3
         with:
-          setup: none
+          cli-version: v1.43.3
+          mode: gha
 
       - name: Clean up old cache entries
         run: |
